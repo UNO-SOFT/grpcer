@@ -9,6 +9,6 @@ from `myrpc.proto`.
 
 # Usage
 
-	protoc -I $GOPATH/src --grpcer_out=plugins=package=pkgname,path=/dest/dir:. $GOPATH/src/unosoft.hu/ws/bruno/pb/dealer/dealer.proto
+	protoc -I $GOPATH/src --grpcer_out=package=pkgname:/dest/dir $GOPATH/src/unosoft.hu/ws/bruno/pb/dealer/dealer.proto
 
 Will generate `dealer.grpcer.go` under `/dest/dir`, with `package pkgname`.
