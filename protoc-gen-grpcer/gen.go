@@ -163,7 +163,7 @@ import (
 	context "golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
 	errors "github.com/pkg/errors"
-	gprcer "github.com/UNO-SOFT/gprcer"
+	grpcer "github.com/UNO-SOFT/grpcer"
 
 	pb "{{.Import}}"
 	{{range .Dependencies}}"{{.}}"
