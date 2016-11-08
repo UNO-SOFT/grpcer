@@ -59,19 +59,10 @@ func main() {
 }
 
 func Generate(resp *protoc.CodeGeneratorResponse, req protoc.CodeGeneratorRequest) error {
-	destPkg, destDir := "main", "."
-	for _, elt := range strings.Split(req.GetParameter(), ",") {
-		if i := strings.IndexByte(elt, '='); i >= 0 {
-			k, v := elt[:i], elt[i+1:]
-			switch k {
-			case "package":
-				destPkg = v
-			case "path":
-				destDir = v
-			}
-		}
+	destPkg := req.GetParameter()
+	if destPkg == "" {
+		destPkg = "main"
 	}
-	log.Printf("parameter=%q => destPkg=%q destDir=%q", req.GetParameter(), destPkg, destDir)
 
 	// Find roots.
 	rootNames := req.GetFileToGenerate()
@@ -120,10 +111,7 @@ func Generate(resp *protoc.CodeGeneratorResponse, req protoc.CodeGeneratorReques
 		pkg := root.GetName()
 		for _, svc := range root.GetService() {
 			grp.Go(func() error {
-				destFn := filepath.Join(
-					destDir,
-					strings.TrimSuffix(filepath.Base(pkg), ".proto")+".grpcer.go",
-				)
+				destFn := strings.TrimSuffix(filepath.Base(pkg), ".proto") + ".grpcer.go"
 				content, err := genGo(destPkg, pkg, svc, root.GetDependency())
 				mu.Lock()
 				resp.File = append(resp.File, &protoc.CodeGeneratorResponse_File{
