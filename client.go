@@ -32,6 +32,10 @@
 package grpcer
 
 import (
+	"fmt"
+	"log"
+	"strings"
+
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -99,6 +103,32 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 	dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
 
 	return dialOpts, nil
+}
+
+// Connect to the given endpoint, with the Certificate Authority and hostOverride.
+func Connect(endpoint, CAFile, serverHostOverride string) (*grpc.ClientConn, error) {
+	var prefix string
+	if i := strings.IndexByte(endpoint, '/'); i >= 0 {
+		endpoint, prefix = (endpoint)[:i], (endpoint)[i:]
+	}
+	dc := DialConfig{
+		PathPrefix:         prefix,
+		CAFile:             CAFile,
+		ServerHostOverride: serverHostOverride,
+		Log: func(keyvals ...interface{}) error {
+			for i := 0; i < len(keyvals); i += 2 {
+				keyvals[i] = fmt.Sprintf("%v=", keyvals[i])
+			}
+			log.Println(keyvals...)
+			return nil
+		},
+	}
+	opts, err := DialOpts(dc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "%#v", dc)
+	}
+	conn, err := grpc.Dial(endpoint, opts...)
+	return conn, errors.Wrap(err, endpoint)
 }
 
 // vim: se noet fileencoding=utf-8:
