@@ -192,10 +192,10 @@ func NewClient(cc *grpc.ClientConn) grpcer.Client {
 		{{.GetName}}Client: c,
 		m: map[string]inputAndCall{
 		{{range .GetMethod}}"{{.GetName}}": inputAndCall{
-			Input: {{trimLeftDot .GetInputType }}{},
+			Input: new({{trimLeftDot .GetInputType }}),
 			Call: func(ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
-				input := in.({{trimLeftDot .GetInputType}})
-				res, err := c.{{.Name}}(ctx, &input, opts...)
+				input := in.(*{{trimLeftDot .GetInputType}})
+				res, err := c.{{.Name}}(ctx, input, opts...)
 				if err != nil {
 					return &onceRecv{Out:res}, err
 				}
