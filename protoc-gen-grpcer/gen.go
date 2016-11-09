@@ -172,9 +172,48 @@ import (
 
 type client struct {
 	pb.{{.GetName}}Client
+	m map[string]inputAndCall
+}
+
+func (c client) Input(name string) interface{} {
+	return c.m[name].Input
+}
+
+func (c client) Call(name string, ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
+	f := c.m[name].Call
+	if f == nil {
+		return nil, errors.Errorf("name %q not found", name)
+	}
+	return f(ctx, in, opts...)
 }
 func NewClient(cc *grpc.ClientConn) grpcer.Client {
-	return client{ pb.New{{.GetName}}Client(cc) }
+	c := pb.New{{.GetName}}Client(cc)
+	return client{
+		{{.GetName}}Client: c,
+		m: map[string]inputAndCall{
+		{{range .GetMethod}}"{{.GetName}}": inputAndCall{
+			Input: {{trimLeftDot .GetInputType }}{},
+			Call: func(ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
+				input := in.({{trimLeftDot .GetInputType}})
+				res, err := c.{{.Name}}(ctx, &input, opts...)
+				if err != nil {
+					return &onceRecv{Out:res}, err
+				}
+				{{if .GetServerStreaming -}}
+				return multiRecv(func() (interface{}, error) { return res.Recv() }), nil
+				{{else -}}
+				return &onceRecv{Out:res}, err
+				{{end}}
+			},
+		},
+		{{end}}
+		},
+	}
+}
+
+type inputAndCall struct {
+	Input interface{}
+	Call func(ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error)
 }
 
 type onceRecv struct {
@@ -194,35 +233,6 @@ type multiRecv func() (interface{}, error)
 func (m multiRecv) Recv() (interface{}, error) {
 	return m()
 }
-
-func (c client) Input(name string) interface{} {
-	switch name {
-	{{range .GetMethod}}case "{{.GetName}}": return {{trimLeftDot .GetInputType }}{}
-	{{end}}
-	}
-	return nil
-}
-
-func (c client) Call(name string, ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
-	switch name {
-	{{range .GetMethod}}case "{{.GetName}}":
-		input := in.(*{{trimLeftDot .GetInputType}})
-		{{if .GetServerStreaming -}}
-		recv, err := c.{{.Name}}(ctx, input, opts...)
-		if err != nil {
-			return nil, err
-		}
-		return multiRecv(func() (interface{}, error) { return recv.Recv() }), nil
-		{{else -}}
-		out, err := c.{{.Name}}(ctx, input, opts...)
-		return &onceRecv{Out:out}, err
-		{{end}}
-	{{end}}
-	}
-	return nil, errors.Errorf("name %q not found", name)
-}
-
-
 
 `))
 
