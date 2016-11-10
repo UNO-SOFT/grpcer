@@ -175,6 +175,14 @@ type client struct {
 	m map[string]inputAndCall
 }
 
+func (c client) List() []string {
+	names := make([]string, 0, len(c.m))
+	for k := range c.m {
+		names = append(names, k)
+	}
+	return names
+}
+
 func (c client) Input(name string) interface{} {
 	return c.m[name].Input
 }
