@@ -37,7 +37,7 @@ type JSONHandler struct {
 }
 
 func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Path
+	name := strings.TrimPrefix(r.URL.Path, "/")
 	inp := h.Input(name)
 	if inp == nil {
 		http.Error(w, errors.Errorf("No unmarshaler for %q.", name).Error(), http.StatusNotFound)
@@ -163,3 +163,5 @@ func CamelCase(text string) string {
 		text,
 	)
 }
+
+// vim: set fileencoding=utf-8 noet:
