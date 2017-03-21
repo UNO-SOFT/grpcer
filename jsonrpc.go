@@ -1,4 +1,4 @@
-// Copyright 2016 Tamás Gulácsi
+// Copyright 2017 Tamás Gulácsi
 //
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,9 +17,9 @@ package grpcer
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -29,14 +29,18 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 type JSONHandler struct {
 	Client
+	Log func(...interface{}) error
 }
 
 func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	Log := h.Log
+	if Log == nil {
+		Log = func(...interface{}) error { return nil }
+	}
 	name := strings.TrimPrefix(r.URL.Path, "/")
 	inp := h.Input(name)
 	if inp == nil {
@@ -51,7 +55,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	buf.Reset()
 	if err := json.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp); err != nil {
-		log.Printf("%s -> %#v: %v", buf.Bytes(), inp, err)
+		Log("got", buf.String(), "inp", inp, "error", err)
 		m := mapPool.Get().(map[string]interface{})
 		defer func() {
 			for k := range m {
@@ -84,7 +88,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	log.Printf("inp=%#v", inp)
+	Log("inp", inp)
 	ctx := context.Background()
 	if u, p, ok := r.BasicAuth(); ok {
 		ctx = WithBasicAuth(ctx, u, p)
@@ -106,14 +110,14 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	for {
 		if err := enc.Encode(part); err != nil {
-			log.Println(err)
+			Log("encode", part, "error", err)
 			return
 		}
 
 		part, err = recv.Recv()
 		if err != nil {
 			if err != io.EOF {
-				log.Println(err)
+				Log("msg", "recv", "error", err)
 			}
 			break
 		}
