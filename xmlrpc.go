@@ -44,7 +44,7 @@ func (h XMLRPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("ERROR unmarshaling: %v", err), http.StatusBadRequest)
 		return
 	}
-	if fault.Code != 0 {
+	if fault != nil {
 		http.Error(w, fmt.Sprintf("ERROR got fault %s", fault), http.StatusBadRequest)
 		return
 	}
