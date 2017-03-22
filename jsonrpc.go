@@ -19,8 +19,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -44,8 +46,12 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/")
 	inp := h.Input(name)
 	if inp == nil {
-		http.Error(w, errors.Errorf("No unmarshaler for %q.", name).Error(), http.StatusNotFound)
-		return
+		nm := path.Base(name)
+		if inp = h.Input(nm); inp == nil {
+			http.Error(w, errors.Errorf("No unmarshaler for %q.", name).Error(), http.StatusNotFound)
+			return
+		}
+		name = nm
 	}
 	buf := bufPool.Get().(*bytes.Buffer)
 	defer func() {
@@ -54,7 +60,9 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	buf.Reset()
-	if err := json.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp); err != nil {
+	err := json.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp)
+	Log("body", buf.String())
+	if err != nil {
 		Log("got", buf.String(), "inp", inp, "error", err)
 		m := mapPool.Get().(map[string]interface{})
 		defer func() {
@@ -88,7 +96,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	Log("inp", inp)
+	Log("inp", fmt.Sprintf("%#v", inp))
 	ctx := context.Background()
 	if u, p, ok := r.BasicAuth(); ok {
 		ctx = WithBasicAuth(ctx, u, p)
