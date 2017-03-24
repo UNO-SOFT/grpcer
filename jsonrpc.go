@@ -31,11 +31,25 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
 
 type JSONHandler struct {
 	Client
 	Log func(...interface{}) error
+}
+
+func jsonError(w http.ResponseWriter, errMsg string, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	if code == 0 {
+		code = http.StatusInternalServerError
+	}
+	w.WriteHeader(code)
+	e := struct {
+		Error string
+	}{Error: errMsg}
+	json.NewEncoder(w).Encode(e)
 }
 
 func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +62,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if inp == nil {
 		nm := path.Base(name)
 		if inp = h.Input(nm); inp == nil {
-			http.Error(w, errors.Errorf("No unmarshaler for %q.", name).Error(), http.StatusNotFound)
+			jsonError(w, errors.Errorf("No unmarshaler for %q.", name).Error(), http.StatusNotFound)
 			return
 		}
 		name = nm
@@ -74,11 +88,11 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err := json.NewDecoder(
 			io.MultiReader(bytes.NewReader(buf.Bytes()), r.Body),
 		).Decode(&m)
-		buf.Reset()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			jsonError(w, errors.Wrap(err, "decode "+buf.String()).Error(), http.StatusBadRequest)
 			return
 		}
+		buf.Reset()
 
 		// mapstruct
 		for k, v := range m {
@@ -92,7 +106,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if err := mapstructure.WeakDecode(m, inp); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			jsonError(w, errors.Wrapf(err, "WeakDecode(%#v)", m).Error(), http.StatusBadRequest)
 			return
 		}
 	}
@@ -105,12 +119,23 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	recv, err := h.Call(name, ctx, inp)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		Log("call", name, "error", fmt.Sprintf("%#v", err))
+		var status int
+		desc := grpc.ErrorDesc(err)
+		code := grpc.Code(err)
+		switch code {
+		case codes.Unknown, codes.PermissionDenied, codes.Unauthenticated:
+			if desc == "bad username or password" {
+				status = http.StatusUnauthorized
+			}
+		}
+		jsonError(w, errors.WithMessage(err, "Call "+name).Error(), status)
 		return
 	}
 	part, err := recv.Recv()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		Log("msg", "recv", "error", err)
+		jsonError(w, errors.WithMessage(err, "recv").Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
