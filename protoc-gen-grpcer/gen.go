@@ -149,6 +149,22 @@ var goTmpl = template.Must(template.
 			}
 			return time.Now().Format(pattern)
 		},
+		"changePkgTo": func(from, to, what string) string {
+			if j := strings.LastIndexByte(from, '/'); j >= 0 {
+				from = from[j+1:]
+			}
+			if from != "" {
+				if strings.HasPrefix(what, from+".") {
+					return to + what[len(from):]
+				}
+				return what
+			}
+			i := strings.IndexByte(what, '.')
+			if i < 0 {
+				return what
+			}
+			return to + what[i:]
+		},
 	}).
 	Parse(`// Generated with protoc-gen-grpcer
 //	from "{{.ProtoFile}}"
@@ -169,6 +185,8 @@ import (
 	{{range .Dependencies}}"{{.}}"
 	{{end}}
 )
+
+{{ $import := .Import }}
 
 type client struct {
 	pb.{{.GetName}}Client
@@ -200,9 +218,9 @@ func NewClient(cc *grpc.ClientConn) grpcer.Client {
 		{{.GetName}}Client: c,
 		m: map[string]inputAndCall{
 		{{range .GetMethod}}"{{.GetName}}": inputAndCall{
-			Input: new({{trimLeftDot .GetInputType }}),
+			Input: new({{ trimLeftDot .GetInputType | changePkgTo $import "pb" }}),
 			Call: func(ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
-				input := in.(*{{trimLeftDot .GetInputType}})
+				input := in.(*{{ trimLeftDot .GetInputType | changePkgTo $import "pb" }})
 				res, err := c.{{.Name}}(ctx, input, opts...)
 				if err != nil {
 					return &onceRecv{Out:res}, err
