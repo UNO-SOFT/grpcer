@@ -202,7 +202,7 @@ func (c client) List() []string {
 }
 
 func (c client) Input(name string) interface{} {
-	return c.m[name].Input
+	return c.m[name].Input()
 }
 
 func (c client) Call(name string, ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
@@ -218,7 +218,7 @@ func NewClient(cc *grpc.ClientConn) grpcer.Client {
 		{{.GetName}}Client: c,
 		m: map[string]inputAndCall{
 		{{range .GetMethod}}"{{.GetName}}": inputAndCall{
-			Input: new({{ trimLeftDot .GetInputType | changePkgTo $import "pb" }}),
+			Input: func() interface{} { return new({{ trimLeftDot .GetInputType | changePkgTo $import "pb" }}) },
 			Call: func(ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
 				input := in.(*{{ trimLeftDot .GetInputType | changePkgTo $import "pb" }})
 				res, err := c.{{.Name}}(ctx, input, opts...)
@@ -238,7 +238,7 @@ func NewClient(cc *grpc.ClientConn) grpcer.Client {
 }
 
 type inputAndCall struct {
-	Input interface{}
+	Input func() interface{}
 	Call func(ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error)
 }
 
@@ -298,3 +298,5 @@ func genGo(destPkg, protoFn string, svc *descriptor.ServiceDescriptorProto, depe
 	})
 	return buf.String(), err
 }
+
+// vim: set fileencoding=utf-8 noet:
