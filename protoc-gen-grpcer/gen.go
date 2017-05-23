@@ -202,15 +202,19 @@ func (c client) List() []string {
 }
 
 func (c client) Input(name string) interface{} {
-	return c.m[name].Input()
+	iac := c.m[name]
+	if iac == nil || iac.Input == nil {
+		return nil
+	}
+	return iac.Input()
 }
 
 func (c client) Call(name string, ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
-	f := c.m[name].Call
-	if f == nil {
+	iac := c.m[name]
+	if iac == nil || iac.Call == nil {
 		return nil, errors.Errorf("name %q not found", name)
 	}
-	return f(ctx, in, opts...)
+	return iac.Call(ctx, in, opts...)
 }
 func NewClient(cc *grpc.ClientConn) grpcer.Client {
 	c := pb.New{{.GetName}}Client(cc)
