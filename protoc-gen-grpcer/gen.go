@@ -203,7 +203,7 @@ func (c client) List() []string {
 
 func (c client) Input(name string) interface{} {
 	iac := c.m[name]
-	if iac == nil || iac.Input == nil {
+	if iac.Input == nil {
 		return nil
 	}
 	return iac.Input()
@@ -211,7 +211,7 @@ func (c client) Input(name string) interface{} {
 
 func (c client) Call(name string, ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
 	iac := c.m[name]
-	if iac == nil || iac.Call == nil {
+	if iac.Call == nil {
 		return nil, errors.Errorf("name %q not found", name)
 	}
 	return iac.Call(ctx, in, opts...)
