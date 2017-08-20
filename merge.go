@@ -54,21 +54,23 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		return
 	}
 
+	Log("slices", slice)
 	w.Write([]byte("{"))
-	enc := json.NewEncoder(w)
 	for _, f := range notSlice {
 		tw := newTrimWriter(w, "", "\n")
 		json.NewEncoder(tw).Encode(f.Name)
 		tw.Close()
 		w.Write([]byte{':'})
-		enc.Encode(f.Value)
+		tw = newTrimWriter(w, "", "\n")
+		json.NewEncoder(tw).Encode(f.Value)
+		tw.Close()
 		w.Write([]byte{','})
 	}
 	tw := newTrimWriter(w, "", "\n")
 	json.NewEncoder(tw).Encode(slice[0].Name)
 	tw.Close()
-	w.Write([]byte(":["))
-	tw = newTrimWriter(w, "[", "]")
+	w.Write([]byte(":"))
+	tw = newTrimWriter(w, "", "]\n")
 	json.NewEncoder(tw).Encode(slice[0].Value)
 	tw.Close()
 
@@ -86,7 +88,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		json.NewEncoder(tw).Encode(f.Name)
 		tw.Close()
 		io.WriteString(fh, ":[")
-		tw = newTrimWriter(fh, "[", "]")
+		tw = newTrimWriter(fh, "[", "]\n")
 		json.NewEncoder(tw).Encode(f.Value)
 		tw.Close()
 	}
@@ -111,30 +113,35 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 			}
 			j++
 		}
+		if S[0].Name == slice[0].Name {
+			w.Write([]byte{','})
+			tw := newTrimWriter(w, "[", "]\n")
+			json.NewEncoder(tw).Encode(S[0].Value)
+			tw.Close()
+			S = S[1:]
+		}
 		for _, f := range S {
 			fh := files[f.Name]
-			fh.Write([]byte{','})
-			tw := newTrimWriter(fh, "[", "]")
-			json.NewEncoder(fh).Encode(f.Value)
+			if _, err := fh.Write([]byte{','}); err != nil {
+				Log("write", fh.Name(), "error", err)
+			}
+			tw := newTrimWriter(fh, "[", "]\n")
+			json.NewEncoder(tw).Encode(f.Value)
 			tw.Close()
 		}
 	}
+	w.Write([]byte("]"))
 
-	var notFirst bool
 	for _, fh := range files {
 		if _, err := fh.Seek(0, 0); err != nil {
 			Log("Seek", fh.Name(), "error", err)
 			continue
 		}
-		if notFirst {
-			w.Write([]byte{','})
-		} else {
-			notFirst = true
-		}
+		w.Write([]byte{','})
 		io.Copy(w, fh)
 		w.Write([]byte{']'})
 	}
-	w.Write([]byte{'}'})
+	w.Write([]byte{'}', '\n'})
 }
 
 type field struct {
@@ -148,11 +155,14 @@ func sliceFields(part interface{}) (slice, notSlice []field) {
 	n := t.NumField()
 	for i := 0; i < n; i++ {
 		f := rv.Field(i)
-		if f.Type().Kind() == reflect.Slice {
-			slice = append(slice, field{Name: t.Field(i).Name, Value: f.Interface()})
-		} else {
+		if f.Type().Kind() != reflect.Slice {
 			notSlice = append(notSlice, field{Name: t.Field(i).Name, Value: f.Interface()})
+			continue
 		}
+		if f.IsNil() {
+			continue
+		}
+		slice = append(slice, field{Name: t.Field(i).Name, Value: f.Interface()})
 	}
 	return slice, notSlice
 }
@@ -167,10 +177,16 @@ func newTrimWriter(w io.Writer, prefix, suffix string) *trimWriter {
 	return &trimWriter{w: w, prefix: prefix, suffix: suffix}
 }
 func (tw *trimWriter) Write(p []byte) (int, error) {
-	if len(p) <= len(tw.prefix) {
-		tw.prefix = tw.prefix[len(p):]
-		return len(p), nil
+	n := len(p)
+	if tw.prefix != "" {
+		if len(tw.prefix) >= len(p) {
+			tw.prefix = tw.prefix[len(p):]
+			return n, nil
+		}
+		p = p[len(tw.prefix):]
+		tw.prefix = ""
 	}
+
 	if len(tw.buf) > 0 && len(tw.buf) >= len(tw.suffix) {
 		if _, err := tw.w.Write(tw.buf); err != nil {
 			return 0, err
@@ -179,12 +195,12 @@ func (tw *trimWriter) Write(p []byte) (int, error) {
 	}
 	if len(p) <= len(tw.suffix) {
 		tw.buf = append(tw.buf, p...)
-		return len(p), nil
+		return n, nil
 	}
 	i := len(p) - len(tw.suffix) + len(tw.buf)
 	tw.buf = append(tw.buf, p[i:]...)
 	_, err := tw.w.Write(p[:i])
-	return len(p), err
+	return n, err
 }
 func (tw *trimWriter) Close() error {
 	if tw.suffix == string(tw.buf) {

@@ -48,6 +48,20 @@ func TestMerge(t *testing.T) {
 			}{{A: []string{"1"}}, {A: []string{"2"}}, {A: []string{"3"}}}),
 			Want: `{"A":["1","2","3"]}` + "\n",
 		},
+		"twoSlice": {
+			Input: toIntf([]struct {
+				A []string
+				B []int
+			}{{A: []string{"1"}, B: []int{33}}, {A: []string{"2"}, B: []int{44}}, {A: []string{"3"}}}),
+			Want: `{"A":["1","2","3"],"B":[33,44]}` + "\n",
+		},
+		"mixed": {
+			Input: toIntf([]struct {
+				A []string
+				B int
+			}{{A: []string{"1"}, B: 33}, {A: []string{"2"}}, {A: []string{"3"}}}),
+			Want: `{"B":33,"A":["1","2","3"]}` + "\n",
+		},
 	} {
 		buf.Reset()
 		recv := &receiver{parts: tC.Input}
@@ -87,8 +101,9 @@ func TestTrimWriter(t *testing.T) {
 	for tN, tC := range map[string]struct {
 		Input, Prefix, Suffix, Want string
 	}{
-		"\\n": {Input: "\"A\"\n", Prefix: "", Suffix: "\n", Want: "\"A\""},
-		"[]":  {Input: "[1]", Prefix: "[", Suffix: "]", Want: "1"},
+		"\\n":   {Input: "\"A\"\n", Prefix: "", Suffix: "\n", Want: "\"A\""},
+		"[]":    {Input: "[1]", Prefix: "[", Suffix: "]", Want: "1"},
+		"[]\\n": {Input: "[\"1\"]\n", Prefix: "[", Suffix: "]\n", Want: "\"1\""},
 	} {
 		buf.Reset()
 		tw := newTrimWriter(buf, tC.Prefix, tC.Suffix)
@@ -97,6 +112,9 @@ func TestTrimWriter(t *testing.T) {
 		}
 		if err := tw.Close(); err != nil {
 			t.Error(tN+":", err)
+		}
+		if d := cmp.Diff(buf.String(), tC.Want); d != "" {
+			t.Error(tN+":", d)
 		}
 	}
 }
