@@ -17,6 +17,7 @@ package grpcer
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -152,6 +153,10 @@ type field struct {
 func sliceFields(part interface{}) (slice, notSlice []field) {
 	rv := reflect.ValueOf(part)
 	t := rv.Type()
+	if t.Kind() == reflect.Ptr {
+		rv = rv.Elem()
+		t = rv.Type()
+	}
 	n := t.NumField()
 	for i := 0; i < n; i++ {
 		f := rv.Field(i)
