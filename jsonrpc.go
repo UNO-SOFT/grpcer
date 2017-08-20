@@ -37,7 +37,8 @@ import (
 
 type JSONHandler struct {
 	Client
-	Log func(...interface{}) error
+	MergeStreams bool
+	Log          func(...interface{}) error
 }
 
 func jsonError(w http.ResponseWriter, errMsg string, code int) {
@@ -132,6 +133,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, errors.WithMessage(err, "Call "+name).Error(), status)
 		return
 	}
+
 	part, err := recv.Recv()
 	if err != nil {
 		Log("msg", "recv", "error", err)
@@ -140,6 +142,12 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	if h.MergeStreams {
+		mergeStreams(w, part, recv, Log)
+		return
+	}
+
 	enc := json.NewEncoder(w)
 	for {
 		if err := enc.Encode(part); err != nil {
