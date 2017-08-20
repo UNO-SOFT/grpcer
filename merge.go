@@ -17,11 +17,11 @@ package grpcer
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"reflect"
+	"strings"
 )
 
 func mergeStreams(w io.Writer, first interface{}, recv interface {
@@ -59,7 +59,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 	w.Write([]byte("{"))
 	for _, f := range notSlice {
 		tw := newTrimWriter(w, "", "\n")
-		json.NewEncoder(tw).Encode(f.Name)
+		json.NewEncoder(tw).Encode(f.JSONName)
 		tw.Close()
 		w.Write([]byte{':'})
 		tw = newTrimWriter(w, "", "\n")
@@ -68,7 +68,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		w.Write([]byte{','})
 	}
 	tw := newTrimWriter(w, "", "\n")
-	json.NewEncoder(tw).Encode(slice[0].Name)
+	json.NewEncoder(tw).Encode(slice[0].JSONName)
 	tw.Close()
 	w.Write([]byte(":"))
 	tw = newTrimWriter(w, "", "]\n")
@@ -86,7 +86,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		defer fh.Close()
 		files[f.Name] = fh
 		tw := newTrimWriter(fh, "", "\n")
-		json.NewEncoder(tw).Encode(f.Name)
+		json.NewEncoder(tw).Encode(f.JSONName)
 		tw.Close()
 		io.WriteString(fh, ":[")
 		tw = newTrimWriter(fh, "[", "]\n")
@@ -146,8 +146,9 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 }
 
 type field struct {
-	Name  string
-	Value interface{}
+	Name     string
+	JSONName string
+	Value    interface{}
 }
 
 func sliceFields(part interface{}) (slice, notSlice []field) {
@@ -160,14 +161,24 @@ func sliceFields(part interface{}) (slice, notSlice []field) {
 	n := t.NumField()
 	for i := 0; i < n; i++ {
 		f := rv.Field(i)
+		tf := t.Field(i)
+		fld := field{Name: tf.Name, Value: f.Interface()}
+		fld.JSONName = tf.Tag.Get("json")
+		if i := strings.IndexByte(fld.JSONName, ','); i >= 0 {
+			fld.JSONName = fld.JSONName[:i]
+		}
+		if fld.JSONName == "" {
+			fld.JSONName = fld.Name
+		}
+
 		if f.Type().Kind() != reflect.Slice {
-			notSlice = append(notSlice, field{Name: t.Field(i).Name, Value: f.Interface()})
+			notSlice = append(notSlice, fld)
 			continue
 		}
 		if f.IsNil() {
 			continue
 		}
-		slice = append(slice, field{Name: t.Field(i).Name, Value: f.Interface()})
+		slice = append(slice, fld)
 	}
 	return slice, notSlice
 }

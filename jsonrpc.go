@@ -209,4 +209,21 @@ func CamelCase(text string) string {
 	)
 }
 
+func SnakeCase(text string) string {
+	if text == "" {
+		return text
+	}
+	b := make([]rune, 0, len(text)*2)
+	strings.Map(func(r rune) rune {
+		if 'A' <= r && r <= 'Z' {
+			b = append(b, unicode.ToLower(r), '_')
+		} else {
+			b = append(b, r)
+		}
+		return -1
+	},
+		text)
+	return string(b)
+}
+
 // vim: set fileencoding=utf-8 noet:
