@@ -22,7 +22,15 @@ import (
 	"os"
 	"reflect"
 	"strings"
+
+	"github.com/pkg/errors"
 )
+
+var errNewField = errors.New("new field")
+
+type streamEncoder interface {
+	WriteField(w io.Writer, name string) error
+}
 
 func mergeStreams(w io.Writer, first interface{}, recv interface {
 	Recv() (interface{}, error)
@@ -55,6 +63,8 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		return
 	}
 
+	names := make(map[string]bool, len(slice)+len(notSlice))
+
 	Log("slices", slice)
 	w.Write([]byte("{"))
 	for _, f := range notSlice {
@@ -66,6 +76,8 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		json.NewEncoder(tw).Encode(f.Value)
 		tw.Close()
 		w.Write([]byte{','})
+
+		names[f.Name] = false
 	}
 	tw := newTrimWriter(w, "", "\n")
 	json.NewEncoder(tw).Encode(slice[0].JSONName)
@@ -74,6 +86,8 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 	tw = newTrimWriter(w, "", "]\n")
 	json.NewEncoder(tw).Encode(slice[0].Value)
 	tw.Close()
+
+	names[slice[0].Name] = true
 
 	files := make(map[string]*os.File, len(slice)-1)
 	for _, f := range slice[1:] {
@@ -92,6 +106,8 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		tw = newTrimWriter(fh, "[", "]\n")
 		json.NewEncoder(tw).Encode(f.Value)
 		tw.Close()
+
+		names[f.Name] = true
 	}
 
 	var part interface{}
@@ -105,15 +121,22 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 			break
 		}
 
-		S, _ := sliceFields(part)
-		for i, j := 0, 0; i < len(S) && j < len(slice); {
-			if S[i].Name == slice[j].Name {
-				i++
-				j++
-				continue
+		S, nS := sliceFields(part)
+		for _, f := range S {
+			if isSlice, ok := names[f.Name]; !(ok && isSlice) {
+				err = errors.Wrap(errNewField, f.Name)
 			}
-			j++
 		}
+		for _, f := range nS {
+			if isSlice, ok := names[f.Name]; !(ok && !isSlice) {
+				err = errors.Wrap(errNewField, f.Name)
+			}
+		}
+		if err != nil {
+			Log("error", err)
+			//TODO(tgulacsi): close the merge and send as is
+		}
+
 		if S[0].Name == slice[0].Name {
 			w.Write([]byte{','})
 			tw := newTrimWriter(w, "[", "]\n")
