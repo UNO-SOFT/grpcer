@@ -16,13 +16,13 @@
 package grpcer
 
 import (
-	"encoding/json"
 	"io"
 	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/pkg/errors"
 )
 
@@ -45,7 +45,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 	if len(slice) == 0 {
 		var err error
 		part := first
-		enc := json.NewEncoder(w)
+		enc := jsoniter.NewEncoder(w)
 		for {
 			if err := enc.Encode(part); err != nil {
 				Log("encode", part, "error", err)
@@ -69,22 +69,22 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 	w.Write([]byte("{"))
 	for _, f := range notSlice {
 		tw := newTrimWriter(w, "", "\n")
-		json.NewEncoder(tw).Encode(f.JSONName)
+		jsoniter.NewEncoder(tw).Encode(f.JSONName)
 		tw.Close()
 		w.Write([]byte{':'})
 		tw = newTrimWriter(w, "", "\n")
-		json.NewEncoder(tw).Encode(f.Value)
+		jsoniter.NewEncoder(tw).Encode(f.Value)
 		tw.Close()
 		w.Write([]byte{','})
 
 		names[f.Name] = false
 	}
 	tw := newTrimWriter(w, "", "\n")
-	json.NewEncoder(tw).Encode(slice[0].JSONName)
+	jsoniter.NewEncoder(tw).Encode(slice[0].JSONName)
 	tw.Close()
 	w.Write([]byte(":"))
 	tw = newTrimWriter(w, "", "]\n")
-	json.NewEncoder(tw).Encode(slice[0].Value)
+	jsoniter.NewEncoder(tw).Encode(slice[0].Value)
 	tw.Close()
 
 	names[slice[0].Name] = true
@@ -100,11 +100,11 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		defer fh.Close()
 		files[f.Name] = fh
 		tw := newTrimWriter(fh, "", "\n")
-		json.NewEncoder(tw).Encode(f.JSONName)
+		jsoniter.NewEncoder(tw).Encode(f.JSONName)
 		tw.Close()
 		io.WriteString(fh, ":[")
 		tw = newTrimWriter(fh, "[", "]\n")
-		json.NewEncoder(tw).Encode(f.Value)
+		jsoniter.NewEncoder(tw).Encode(f.Value)
 		tw.Close()
 
 		names[f.Name] = true
@@ -140,7 +140,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		if S[0].Name == slice[0].Name {
 			w.Write([]byte{','})
 			tw := newTrimWriter(w, "[", "]\n")
-			json.NewEncoder(tw).Encode(S[0].Value)
+			jsoniter.NewEncoder(tw).Encode(S[0].Value)
 			tw.Close()
 			S = S[1:]
 		}
@@ -150,7 +150,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 				Log("write", fh.Name(), "error", err)
 			}
 			tw := newTrimWriter(fh, "[", "]\n")
-			json.NewEncoder(tw).Encode(f.Value)
+			jsoniter.NewEncoder(tw).Encode(f.Value)
 			tw.Close()
 		}
 	}

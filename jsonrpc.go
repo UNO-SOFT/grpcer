@@ -18,7 +18,6 @@ package grpcer
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,6 +28,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -50,7 +50,7 @@ func jsonError(w http.ResponseWriter, errMsg string, code int) {
 	e := struct {
 		Error string
 	}{Error: errMsg}
-	json.NewEncoder(w).Encode(e)
+	jsoniter.NewEncoder(w).Encode(e)
 }
 
 func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +75,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	buf.Reset()
-	err := json.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp)
+	err := jsoniter.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp)
 	Log("body", buf.String())
 	if err != nil {
 		Log("got", buf.String(), "inp", inp, "error", err)
@@ -86,7 +86,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			mapPool.Put(m)
 		}()
-		err := json.NewDecoder(
+		err := jsoniter.NewDecoder(
 			io.MultiReader(bytes.NewReader(buf.Bytes()), r.Body),
 		).Decode(&m)
 		if err != nil {
@@ -148,7 +148,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	enc := json.NewEncoder(w)
+	enc := jsoniter.NewEncoder(w)
 	for {
 		if err := enc.Encode(part); err != nil {
 			Log("encode", part, "error", err)
