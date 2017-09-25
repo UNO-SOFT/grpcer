@@ -83,7 +83,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 	jsoniter.NewEncoder(tw).Encode(slice[0].JSONName)
 	tw.Close()
 	w.Write([]byte(":"))
-	tw = newTrimWriter(w, "", "]\n")
+	tw = newTrimWriter(w, "", "]")
 	jsoniter.NewEncoder(tw).Encode(slice[0].Value)
 	tw.Close()
 
@@ -103,7 +103,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		jsoniter.NewEncoder(tw).Encode(f.JSONName)
 		tw.Close()
 		io.WriteString(fh, ":[")
-		tw = newTrimWriter(fh, "[", "]\n")
+		tw = newTrimWriter(fh, "[", "]")
 		jsoniter.NewEncoder(tw).Encode(f.Value)
 		tw.Close()
 
@@ -139,7 +139,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 
 		if S[0].Name == slice[0].Name {
 			w.Write([]byte{','})
-			tw := newTrimWriter(w, "[", "]\n")
+			tw := newTrimWriter(w, "[", "]")
 			jsoniter.NewEncoder(tw).Encode(S[0].Value)
 			tw.Close()
 			S = S[1:]
@@ -149,7 +149,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 			if _, err := fh.Write([]byte{','}); err != nil {
 				Log("write", fh.Name(), "error", err)
 			}
-			tw := newTrimWriter(fh, "[", "]\n")
+			tw := newTrimWriter(fh, "[", "]")
 			jsoniter.NewEncoder(tw).Encode(f.Value)
 			tw.Close()
 		}
