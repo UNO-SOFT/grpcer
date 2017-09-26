@@ -24,6 +24,7 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/pkg/errors"
+	"github.com/tgulacsi/go/stream"
 )
 
 var errNewField = errors.New("new field")
@@ -68,22 +69,22 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 	Log("slices", slice)
 	w.Write([]byte("{"))
 	for _, f := range notSlice {
-		tw := newTrimWriter(w, "", "\n")
+		tw := stream.NewTrimSpace(w)
 		jsoniter.NewEncoder(tw).Encode(f.JSONName)
-		tw.Close()
 		w.Write([]byte{':'})
-		tw = newTrimWriter(w, "", "\n")
-		jsoniter.NewEncoder(tw).Encode(f.Value)
 		tw.Close()
+		tw = stream.NewTrimSpace(w)
+		jsoniter.NewEncoder(tw).Encode(f.Value)
 		w.Write([]byte{','})
+		tw.Close()
 
 		names[f.Name] = false
 	}
-	tw := newTrimWriter(w, "", "\n")
+	tw := stream.NewTrimSpace(w)
 	jsoniter.NewEncoder(tw).Encode(slice[0].JSONName)
-	tw.Close()
 	w.Write([]byte(":"))
-	tw = newTrimWriter(w, "", "]")
+	tw.Close()
+	tw = stream.NewTrimFix(w, "", "]")
 	jsoniter.NewEncoder(tw).Encode(slice[0].Value)
 	tw.Close()
 
@@ -99,11 +100,11 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		os.Remove(fh.Name())
 		defer fh.Close()
 		files[f.Name] = fh
-		tw := newTrimWriter(fh, "", "\n")
+		tw := stream.NewTrimSpace(fh)
 		jsoniter.NewEncoder(tw).Encode(f.JSONName)
-		tw.Close()
 		io.WriteString(fh, ":[")
-		tw = newTrimWriter(fh, "[", "]")
+		tw.Close()
+		tw = stream.NewTrimFix(fh, "[", "]")
 		jsoniter.NewEncoder(tw).Encode(f.Value)
 		tw.Close()
 
@@ -139,7 +140,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 
 		if S[0].Name == slice[0].Name {
 			w.Write([]byte{','})
-			tw := newTrimWriter(w, "[", "]")
+			tw := stream.NewTrimFix(w, "[", "]")
 			jsoniter.NewEncoder(tw).Encode(S[0].Value)
 			tw.Close()
 			S = S[1:]
@@ -149,7 +150,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 			if _, err := fh.Write([]byte{','}); err != nil {
 				Log("write", fh.Name(), "error", err)
 			}
-			tw := newTrimWriter(fh, "[", "]")
+			tw := stream.NewTrimFix(fh, "[", "]")
 			jsoniter.NewEncoder(tw).Encode(f.Value)
 			tw.Close()
 		}
@@ -204,47 +205,4 @@ func sliceFields(part interface{}) (slice, notSlice []field) {
 		slice = append(slice, fld)
 	}
 	return slice, notSlice
-}
-
-type trimWriter struct {
-	w              io.Writer
-	prefix, suffix string
-	buf            []byte
-}
-
-func newTrimWriter(w io.Writer, prefix, suffix string) *trimWriter {
-	return &trimWriter{w: w, prefix: prefix, suffix: suffix}
-}
-func (tw *trimWriter) Write(p []byte) (int, error) {
-	n := len(p)
-	if tw.prefix != "" {
-		if len(tw.prefix) >= len(p) {
-			tw.prefix = tw.prefix[len(p):]
-			return n, nil
-		}
-		p = p[len(tw.prefix):]
-		tw.prefix = ""
-	}
-
-	if len(tw.buf) > 0 && len(tw.buf) >= len(tw.suffix) {
-		if _, err := tw.w.Write(tw.buf); err != nil {
-			return 0, err
-		}
-		tw.buf = tw.buf[:0]
-	}
-	if len(p) <= len(tw.suffix) {
-		tw.buf = append(tw.buf, p...)
-		return n, nil
-	}
-	i := len(p) - len(tw.suffix) + len(tw.buf)
-	tw.buf = append(tw.buf, p[i:]...)
-	_, err := tw.w.Write(p[:i])
-	return n, err
-}
-func (tw *trimWriter) Close() error {
-	if tw.suffix == string(tw.buf) {
-		return nil
-	}
-	_, err := tw.w.Write(tw.buf)
-	return err
 }
