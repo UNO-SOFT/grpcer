@@ -18,7 +18,6 @@ package grpcer
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -113,7 +112,8 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	buf.Reset()
-	_ = json.NewEncoder(buf).Encode(inp)
+	jenc := jsoniter.NewEncoder(buf)
+	_ = jenc.Encode(inp)
 	Log("inp", buf.String())
 	ctx := context.Background()
 	if u, p, ok := r.BasicAuth(); ok {
@@ -147,12 +147,18 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 
 	if h.MergeStreams {
+		buf.Reset()
+		_ = jenc.Encode(part)
+		Log("part", buf.String())
 		mergeStreams(w, part, recv, Log)
 		return
 	}
 
 	enc := jsoniter.NewEncoder(w)
 	for {
+		buf.Reset()
+		_ = jenc.Encode(part)
+		Log("part", buf.String())
 		if err := enc.Encode(part); err != nil {
 			Log("encode", part, "error", err)
 			return
