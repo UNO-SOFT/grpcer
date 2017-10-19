@@ -18,6 +18,7 @@ package grpcer
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -111,7 +112,9 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	Log("inp", fmt.Sprintf("%#v", inp))
+	buf.Reset()
+	_ = json.NewEncoder(buf).Encode(inp)
+	Log("inp", buf.String())
 	ctx := context.Background()
 	if u, p, ok := r.BasicAuth(); ok {
 		ctx = WithBasicAuth(ctx, u, p)
