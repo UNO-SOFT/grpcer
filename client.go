@@ -1,4 +1,4 @@
-// Copyright 2016 Tamás Gulácsi
+// Copyright 2017 Tamás Gulácsi
 //
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
@@ -83,6 +83,7 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 	if conf.CAFile == "" {
 		return append(dialOpts, grpc.WithInsecure()), nil
 	}
+	log.Printf("dialConf=%+v", conf)
 	creds, err := credentials.NewClientTLSFromFile(conf.CAFile, conf.ServerHostOverride)
 	if err != nil {
 		return dialOpts, errors.Wrapf(err, "%q,%q", conf.CAFile, conf.ServerHostOverride)

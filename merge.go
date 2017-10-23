@@ -66,7 +66,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 
 	names := make(map[string]bool, len(slice)+len(notSlice))
 
-	Log("slices", slice)
+	//Log("slices", slice)
 	w.Write([]byte("{"))
 	for _, f := range notSlice {
 		tw := stream.NewTrimSpace(w)
