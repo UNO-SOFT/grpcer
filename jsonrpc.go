@@ -146,11 +146,13 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
-	if h.MergeStreams {
+	if m := r.URL.Query().Get("merge"); h.MergeStreams && m != "0" || !h.MergeStreams && m == "1" {
 		buf.Reset()
 		_ = jenc.Encode(part)
-		Log("part", buf.String())
-		mergeStreams(w, part, recv, Log)
+		Log("part", limitWidth(buf.Bytes(), 256))
+		if err := mergeStreams(w, part, recv, Log); err != nil {
+			Log("mergeStreams", "error", err)
+		}
 		return
 	}
 
@@ -158,7 +160,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for {
 		buf.Reset()
 		_ = jenc.Encode(part)
-		Log("part", buf.String())
+		Log("part", limitWidth(buf.Bytes(), 256))
 		if err := enc.Encode(part); err != nil {
 			Log("encode", part, "error", err)
 			return
@@ -172,6 +174,20 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+}
+
+func limitWidth(b []byte, width int) string {
+	if width == 0 {
+		width = 1024
+	}
+	if len(b) <= width {
+		return string(b)
+	}
+	if len(b) <= width-4 {
+		return string(b[:width-4]) + " ..."
+	}
+	n := len(b) - width - 12
+	return fmt.Sprintf("%s ...%d... %s", b[:width/2-6], n, b[len(b)-width/2-6:])
 }
 
 var mapPool = sync.Pool{New: func() interface{} { return make(map[string]interface{}, 16) }}

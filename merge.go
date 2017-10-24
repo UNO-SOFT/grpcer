@@ -16,15 +16,16 @@
 package grpcer
 
 import (
+	"bytes"
+	json "encoding/json"
 	"io"
 	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
 
-	jsoniter "github.com/json-iterator/go"
+	//json "github.com/json-iterator/go"
 	"github.com/pkg/errors"
-	"github.com/tgulacsi/go/stream"
 )
 
 var errNewField = errors.New("new field")
@@ -37,7 +38,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 	Recv() (interface{}, error)
 },
 	Log func(...interface{}) error,
-) {
+) error {
 	if Log == nil {
 		Log = func(...interface{}) error { return nil }
 	}
@@ -46,11 +47,11 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 	if len(slice) == 0 {
 		var err error
 		part := first
-		enc := jsoniter.NewEncoder(w)
+		enc := json.NewEncoder(w)
 		for {
 			if err := enc.Encode(part); err != nil {
 				Log("encode", part, "error", err)
-				return
+				return errors.Wrap(err, "encode part")
 			}
 
 			part, err = recv.Recv()
@@ -61,32 +62,42 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 				break
 			}
 		}
-		return
+		Log("slice", len(slice))
+		return nil
 	}
 
 	names := make(map[string]bool, len(slice)+len(notSlice))
 
+	buf := bufPool.Get().(*bytes.Buffer)
+	defer func() {
+		buf.Reset()
+		bufPool.Put(buf)
+	}()
+	jenc := json.NewEncoder(buf)
+
 	//Log("slices", slice)
 	w.Write([]byte("{"))
 	for _, f := range notSlice {
-		tw := stream.NewTrimSpace(w)
-		jsoniter.NewEncoder(tw).Encode(f.JSONName)
+		buf.Reset()
+		jenc.Encode(f.JSONName)
+		w.Write(bytes.TrimSpace(buf.Bytes()))
+
 		w.Write([]byte{':'})
-		tw.Close()
-		tw = stream.NewTrimSpace(w)
-		jsoniter.NewEncoder(tw).Encode(f.Value)
+		buf.Reset()
+		jenc.Encode(f.Value)
+		w.Write(bytes.TrimSpace(buf.Bytes()))
 		w.Write([]byte{','})
-		tw.Close()
 
 		names[f.Name] = false
 	}
-	tw := stream.NewTrimSpace(w)
-	jsoniter.NewEncoder(tw).Encode(slice[0].JSONName)
+	buf.Reset()
+	jenc.Encode(slice[0].JSONName)
+	w.Write(bytes.TrimSpace(buf.Bytes()))
 	w.Write([]byte(":"))
-	tw.Close()
-	tw = stream.NewTrimFix(w, "", "]")
-	jsoniter.NewEncoder(tw).Encode(slice[0].Value)
-	tw.Close()
+
+	buf.Reset()
+	jenc.Encode(slice[0].Value)
+	w.Write(bytes.TrimSuffix(bytes.TrimSpace(buf.Bytes()), []byte{']'}))
 
 	names[slice[0].Name] = true
 
@@ -95,18 +106,20 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		fh, err := ioutil.TempFile("", "merge-"+f.Name+"-")
 		if err != nil {
 			Log("tempFile", f.Name, "error", err)
-			return
+			return errors.Wrap(err, f.Name)
 		}
-		os.Remove(fh.Name())
+		//os.Remove(fh.Name())
+		Log("fn", fh.Name())
 		defer fh.Close()
 		files[f.Name] = fh
-		tw := stream.NewTrimSpace(fh)
-		jsoniter.NewEncoder(tw).Encode(f.JSONName)
+		buf.Reset()
+		jenc.Encode(f.JSONName)
+		fh.Write(bytes.TrimSpace(buf.Bytes()))
 		io.WriteString(fh, ":[")
-		tw.Close()
-		tw = stream.NewTrimFix(fh, "[", "]")
-		jsoniter.NewEncoder(tw).Encode(f.Value)
-		tw.Close()
+
+		buf.Reset()
+		jenc.Encode(f.Value)
+		fh.Write(trimSqBrs(buf.Bytes()))
 
 		names[f.Name] = true
 	}
@@ -121,6 +134,9 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 			}
 			break
 		}
+		buf.Reset()
+		jenc.Encode(part)
+		Log("part", limitWidth(buf.Bytes(), 256))
 
 		S, nS := sliceFields(part)
 		for _, f := range S {
@@ -136,13 +152,14 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		if err != nil {
 			Log("error", err)
 			//TODO(tgulacsi): close the merge and send as is
+			return err
 		}
 
 		if S[0].Name == slice[0].Name {
 			w.Write([]byte{','})
-			tw := stream.NewTrimFix(w, "[", "]")
-			jsoniter.NewEncoder(tw).Encode(S[0].Value)
-			tw.Close()
+			buf.Reset()
+			jenc.Encode(S[0].Value)
+			w.Write(trimSqBrs(buf.Bytes()))
 			S = S[1:]
 		}
 		for _, f := range S {
@@ -150,14 +167,17 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 			if _, err := fh.Write([]byte{','}); err != nil {
 				Log("write", fh.Name(), "error", err)
 			}
-			tw := stream.NewTrimFix(fh, "[", "]")
-			jsoniter.NewEncoder(tw).Encode(f.Value)
-			tw.Close()
+			buf.Reset()
+			jenc.Encode(f.Value)
+			fh.Write(trimSqBrs(buf.Bytes()))
 		}
 	}
 	w.Write([]byte("]"))
 
 	for _, fh := range files {
+		if err := fh.Sync(); err != nil {
+			Log("Sync", fh.Name(), "error", err)
+		}
 		if _, err := fh.Seek(0, 0); err != nil {
 			Log("Seek", fh.Name(), "error", err)
 			continue
@@ -167,6 +187,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		w.Write([]byte{']'})
 	}
 	w.Write([]byte{'}', '\n'})
+	return nil
 }
 
 type field struct {
@@ -205,4 +226,20 @@ func sliceFields(part interface{}) (slice, notSlice []field) {
 		slice = append(slice, fld)
 	}
 	return slice, notSlice
+}
+func trimSqBrs(b []byte) []byte {
+	b = bytes.TrimSpace(b)
+	if len(b) == 0 {
+		return b
+	}
+	if b[0] == '[' {
+		b = b[1:]
+	}
+	if len(b) == 0 {
+		return b
+	}
+	if b[len(b)-1] == ']' {
+		b = b[:len(b)-1]
+	}
+	return b
 }
