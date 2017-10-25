@@ -17,14 +17,14 @@ package grpcer
 
 import (
 	"bytes"
-	json "encoding/json"
+	//json "encoding/json"
 	"io"
 	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
 
-	//json "github.com/json-iterator/go"
+	json "github.com/json-iterator/go"
 	"github.com/pkg/errors"
 )
 
@@ -108,7 +108,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 			Log("tempFile", f.Name, "error", err)
 			return errors.Wrap(err, f.Name)
 		}
-		//os.Remove(fh.Name())
+		os.Remove(fh.Name())
 		Log("fn", fh.Name())
 		defer fh.Close()
 		files[f.Name] = fh
