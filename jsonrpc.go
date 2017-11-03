@@ -124,23 +124,14 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	recv, err := h.Call(name, ctx, inp)
 	if err != nil {
 		Log("call", name, "error", fmt.Sprintf("%#v", err))
-		var status int
-		desc := grpc.ErrorDesc(err)
-		code := grpc.Code(err)
-		switch code {
-		case codes.Unknown, codes.PermissionDenied, codes.Unauthenticated:
-			if desc == "bad username or password" {
-				status = http.StatusUnauthorized
-			}
-		}
-		jsonError(w, errors.WithMessage(err, "Call "+name).Error(), status)
+		jsonError(w, errors.WithMessage(err, "Call "+name).Error(), statusCodeFromError(err))
 		return
 	}
 
 	part, err := recv.Recv()
 	if err != nil {
 		Log("msg", "recv", "error", err)
-		jsonError(w, errors.WithMessage(err, "recv").Error(), http.StatusInternalServerError)
+		jsonError(w, errors.WithMessage(err, "recv").Error(), statusCodeFromError(err))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -174,6 +165,19 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+}
+
+func statusCodeFromError(err error) int {
+	code := grpc.Code(errors.Cause(err))
+	switch code {
+	case codes.PermissionDenied, codes.Unauthenticated:
+		return http.StatusUnauthorized
+	case codes.Unknown:
+		if desc := grpc.ErrorDesc(err); desc == "bad username or password" {
+			return http.StatusUnauthorized
+		}
+	}
+	return http.StatusInternalServerError
 }
 
 func limitWidth(b []byte, width int) string {
