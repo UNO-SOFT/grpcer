@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -275,7 +276,13 @@ func (no *JSNoOmitEmptyExtension) UpdateStructDescriptor(sd *jsoniter.StructDesc
 		return
 	}
 	for _, binding := range sd.Fields {
-		binding.Encoder = nonEmptyEncoder{binding.Encoder}
+		switch binding.Field.Type.Kind() {
+		case reflect.Float32, reflect.Float64,
+			reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+			reflect.String:
+			binding.Encoder = nonEmptyEncoder{binding.Encoder}
+		}
 	}
 }
 
