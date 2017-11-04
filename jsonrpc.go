@@ -27,8 +27,10 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+	"unsafe"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/json-iterator/go/extra"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -254,5 +256,33 @@ func SnakeCase(text string) string {
 		text)
 	return string(b)
 }
+
+func init() {
+	extra.RegisterFuzzyDecoders()
+	SetNoOmit(func(nm string) bool { return strings.HasSuffix(nm, "_Output") })
+}
+func SetNoOmit(filter func(string) bool) {
+	jsoniter.RegisterExtension(&JSNoOmitEmptyExtension{filter: filter})
+}
+
+type JSNoOmitEmptyExtension struct {
+	jsoniter.DummyExtension
+	filter func(string) bool
+}
+
+func (no *JSNoOmitEmptyExtension) UpdateStructDescriptor(sd *jsoniter.StructDescriptor) {
+	if !no.filter(sd.Type.Name()) {
+		return
+	}
+	for _, binding := range sd.Fields {
+		binding.Encoder = nonEmptyEncoder{binding.Encoder}
+	}
+}
+
+type nonEmptyEncoder struct {
+	jsoniter.ValEncoder
+}
+
+func (ne nonEmptyEncoder) IsEmpty(ptr unsafe.Pointer) bool { return false }
 
 // vim: set fileencoding=utf-8 noet:
