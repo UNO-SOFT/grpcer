@@ -58,8 +58,8 @@ type DialConfig struct {
 // * serverHostOverride is to override the CA's host.
 func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 	dialOpts := make([]grpc.DialOption, 2, 6)
-	dialOpts[0] = grpc.WithCompressor(grpc.NewGZIPCompressor())
-	dialOpts[1] = grpc.WithDecompressor(grpc.NewGZIPDecompressor())
+	//dialOpts[0] = grpc.UseCompressor(grpc.NewGZIPCompressor())
+	//dialOpts[1] = grpc.UseDecompressor(grpc.NewGZIPDecompressor())
 
 	if prefix, Log := conf.PathPrefix, conf.Log; prefix != "" || Log != nil {
 		if Log == nil {
@@ -69,11 +69,13 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 			grpc.WithStreamInterceptor(
 				func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					Log("method", method)
+					opts = append(opts, grpc.UseCompressor("gzip"))
 					return streamer(ctx, desc, cc, prefix+method, opts...)
 				}),
 			grpc.WithUnaryInterceptor(
 				func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 					Log("method", method)
+					opts = append(opts, grpc.UseCompressor("gzip"))
 					return invoker(ctx, prefix+method, req, reply, cc, opts...)
 				}),
 		)

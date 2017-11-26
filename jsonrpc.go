@@ -246,7 +246,7 @@ func SnakeCase(text string) string {
 		return text
 	}
 	b := make([]rune, 0, len(text)*2)
-	strings.Map(func(r rune) rune {
+	_ = strings.Map(func(r rune) rune {
 		if 'A' <= r && r <= 'Z' {
 			b = append(b, unicode.ToLower(r), '_')
 		} else {

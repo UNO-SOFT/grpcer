@@ -30,10 +30,6 @@ import (
 
 var errNewField = errors.New("new field")
 
-type streamEncoder interface {
-	WriteField(w io.Writer, name string) error
-}
-
 func mergeStreams(w io.Writer, first interface{}, recv interface {
 	Recv() (interface{}, error)
 },
