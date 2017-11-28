@@ -57,9 +57,9 @@ type DialConfig struct {
 // * caFile is the PEM file with the server's CA.
 // * serverHostOverride is to override the CA's host.
 func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
-	dialOpts := make([]grpc.DialOption, 2, 6)
-	//dialOpts[0] = grpc.UseCompressor(grpc.NewGZIPCompressor())
-	//dialOpts[1] = grpc.UseDecompressor(grpc.NewGZIPDecompressor())
+	dialOpts := make([]grpc.DialOption, 0, 6)
+	//dialOpts = append(dialOpts, grpc.UseCompressor(grpc.NewGZIPCompressor()))
+	//dialOpts = append(dialOpts, grpc.UseDecompressor(grpc.NewGZIPDecompressor()))
 
 	if prefix, Log := conf.PathPrefix, conf.Log; prefix != "" || Log != nil {
 		if Log == nil {
