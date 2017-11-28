@@ -58,8 +58,11 @@ type DialConfig struct {
 // * serverHostOverride is to override the CA's host.
 func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 	dialOpts := make([]grpc.DialOption, 0, 6)
-	//dialOpts = append(dialOpts, grpc.UseCompressor(grpc.NewGZIPCompressor()))
-	//dialOpts = append(dialOpts, grpc.UseDecompressor(grpc.NewGZIPDecompressor()))
+	dialOpts = append(dialOpts,
+		//lint:ignore SA1019 the UseCompressor API is experimental yet.
+		grpc.WithCompressor(grpc.NewGZIPCompressor()),
+		//lint:ignore SA1019 the UseCompressor API is experimental yet.
+		grpc.WithDecompressor(grpc.NewGZIPDecompressor()))
 
 	if prefix, Log := conf.PathPrefix, conf.Log; prefix != "" || Log != nil {
 		if Log == nil {
@@ -69,13 +72,13 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 			grpc.WithStreamInterceptor(
 				func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					Log("method", method)
-					opts = append(opts, grpc.UseCompressor("gzip"))
+					//opts = append(opts, grpc.UseCompressor("gzip"))
 					return streamer(ctx, desc, cc, prefix+method, opts...)
 				}),
 			grpc.WithUnaryInterceptor(
 				func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 					Log("method", method)
-					opts = append(opts, grpc.UseCompressor("gzip"))
+					//opts = append(opts, grpc.UseCompressor("gzip"))
 					return invoker(ctx, prefix+method, req, reply, cc, opts...)
 				}),
 		)
