@@ -1,19 +1,13 @@
 module "github.com/UNO-SOFT/grpcer"
 
 require (
-	"github.com/davecgh/go-spew" v1.1.0
 	"github.com/golang/protobuf" v1.0.0
-	"github.com/google/gofuzz" v0.0.0-20170612174753-24818f796faf
-	"github.com/json-iterator/go" v0.0.0-20180314231820-39acec93e05e5ba9d785d21d99608a7e4da16e3e
+	"github.com/json-iterator/go" v0.0.0-20180314151820-39acec93e05e
 	"github.com/mitchellh/mapstructure" v0.0.0-20180220230111-00c29f56e238
 	"github.com/pkg/errors" v0.8.0
-	"github.com/pmezard/go-difflib" v1.0.0
-	"github.com/stretchr/objx" v0.1.0
-	"github.com/stretchr/testify" v1.2.1
 	"github.com/tgulacsi/go-xmlrpc" v0.2.2
-	"github.com/v2pro/plz" v0.0.0-20180222231523-10fc95fad322
-	"golang.org/x/net" v0.0.0-20180218175443-cbe0f9307d01
+	"golang.org/x/net" v0.0.0-20180314180242-e0c57d8f86c1
 	"golang.org/x/text" v0.0.0-20171214130843-f21a4dfb5e38
-	"google.golang.org/genproto" v0.0.0-20180206005123-2b5a72b8730b
+	"google.golang.org/genproto" v0.0.0-20180306020942-df60624c1e9b
 	"google.golang.org/grpc" v1.10.0
 )
