@@ -4,7 +4,7 @@ require (
 	"github.com/davecgh/go-spew" v1.1.0
 	"github.com/golang/protobuf" v1.0.0
 	"github.com/google/gofuzz" v0.0.0-20170612174753-24818f796faf
-	"github.com/json-iterator/go" v0.0.0-20180223102014-a377e2656b75
+	"github.com/json-iterator/go" v0.0.0-20180314231820-39acec93e05e5ba9d785d21d99608a7e4da16e3e
 	"github.com/mitchellh/mapstructure" v0.0.0-20180220230111-00c29f56e238
 	"github.com/pkg/errors" v0.8.0
 	"github.com/pmezard/go-difflib" v1.0.0

@@ -272,11 +272,11 @@ type JSNoOmitEmptyExtension struct {
 }
 
 func (no *JSNoOmitEmptyExtension) UpdateStructDescriptor(sd *jsoniter.StructDescriptor) {
-	if !no.filter(sd.Type.Name()) {
+	if !no.filter(sd.Type.Type1().Name()) {
 		return
 	}
 	for _, binding := range sd.Fields {
-		switch binding.Field.Type.Kind() {
+		switch binding.Field.Type().Kind() {
 		case reflect.Float32, reflect.Float64,
 			reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
