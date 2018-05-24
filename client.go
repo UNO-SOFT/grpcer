@@ -83,11 +83,11 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 				}),
 		)
 	}
-	ba := NewBasicAuth(conf.Username, conf.Password)
-	dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(ba))
 	if conf.CAFile == "" {
 		return append(dialOpts, grpc.WithInsecure()), nil
 	}
+	ba := NewBasicAuth(conf.Username, conf.Password)
+	dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(ba))
 	log.Printf("dialConf=%+v", conf)
 	creds, err := credentials.NewClientTLSFromFile(conf.CAFile, conf.ServerHostOverride)
 	if err != nil {
