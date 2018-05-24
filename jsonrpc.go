@@ -34,8 +34,8 @@ import (
 	"github.com/json-iterator/go/extra"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var DefaultTimeout = 5 * time.Minute
@@ -183,12 +183,12 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func statusCodeFromError(err error) int {
-	code := grpc.Code(errors.Cause(err))
-	switch code {
+	st := status.Convert(errors.Cause(err))
+	switch st.Code() {
 	case codes.PermissionDenied, codes.Unauthenticated:
 		return http.StatusUnauthorized
 	case codes.Unknown:
-		if desc := grpc.ErrorDesc(err); desc == "bad username or password" {
+		if desc := st.Message(); desc == "bad username or password" {
 			return http.StatusUnauthorized
 		}
 	}
