@@ -30,7 +30,8 @@ import (
 
 type XMLRPCHandler struct {
 	Client
-	Log func(...interface{}) error
+	Log     func(...interface{}) error
+	Timeout time.Duration
 }
 
 func (h XMLRPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -77,12 +78,21 @@ func (h XMLRPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	Log("inp", inp)
 
-	ctx := context.Background()
+	ctx := r.Context()
 	if u, p, ok := r.BasicAuth(); ok {
 		ctx = WithBasicAuth(ctx, u, p)
 	}
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-	defer cancel()
+	if _, ok := ctx.Deadline(); !ok {
+		timeout := h.Timeout
+		if timeout == 0 {
+			timeout = DefaultTimeout
+		}
+		if timeout > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
+	}
 	recv, err := h.Call(name, ctx, inp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

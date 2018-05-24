@@ -38,10 +38,13 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
+var DefaultTimeout = 5 * time.Minute
+
 type JSONHandler struct {
 	Client
 	MergeStreams bool
 	Log          func(...interface{}) error
+	Timeout      time.Duration
 }
 
 func jsonError(w http.ResponseWriter, errMsg string, code int) {
@@ -118,12 +121,21 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	jenc := jsoniter.NewEncoder(buf)
 	_ = jenc.Encode(inp)
 	Log("inp", buf.String())
-	ctx := context.Background()
+	ctx := r.Context()
 	if u, p, ok := r.BasicAuth(); ok {
 		ctx = WithBasicAuth(ctx, u, p)
 	}
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-	defer cancel()
+	if _, ok := ctx.Deadline(); !ok {
+		timeout := h.Timeout
+		if timeout == 0 {
+			timeout = DefaultTimeout
+		}
+		if timeout > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
+	}
 	recv, err := h.Call(name, ctx, inp)
 	if err != nil {
 		Log("call", name, "error", fmt.Sprintf("%#v", err))
