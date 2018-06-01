@@ -264,6 +264,8 @@ func (m multiRecv) Recv() (interface{}, error) {
 	return m()
 }
 
+var _ = multiRecv(nil) // against "unused"
+
 `))
 
 func genGo(destPkg, protoFn string, svc *descriptor.ServiceDescriptorProto, dependencies []string) (string, error) {
