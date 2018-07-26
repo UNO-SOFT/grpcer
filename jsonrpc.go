@@ -64,15 +64,12 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if Log == nil {
 		Log = func(...interface{}) error { return nil }
 	}
-	name := strings.TrimPrefix(r.URL.Path, "/")
+	name := path.Base(r.URL.Path)
+	Log("name", name)
 	inp := h.Input(name)
 	if inp == nil {
-		nm := path.Base(name)
-		if inp = h.Input(nm); inp == nil {
-			jsonError(w, errors.Errorf("No unmarshaler for %q.", name).Error(), http.StatusNotFound)
-			return
-		}
-		name = nm
+		jsonError(w, errors.Errorf("No unmarshaler for %q.", name).Error(), http.StatusNotFound)
+		return
 	}
 	buf := bufPool.Get().(*bytes.Buffer)
 	defer func() {
@@ -84,6 +81,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := jsoniter.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp)
 	Log("body", buf.String())
 	if err != nil {
+		err = errors.Wrap(err, buf.String())
 		Log("got", buf.String(), "inp", inp, "error", err)
 		m := mapPool.Get().(map[string]interface{})
 		defer func() {
