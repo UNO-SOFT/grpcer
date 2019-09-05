@@ -33,7 +33,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/json-iterator/go/extra"
 	"github.com/mitchellh/mapstructure"
-	"github.com/pkg/errors"
+	errors "golang.org/x/xerrors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -68,7 +68,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	Log("name", name)
 	inp := h.Input(name)
 	if inp == nil {
-		jsonError(w, errors.Errorf("No unmarshaler for %q.", name).Error(), http.StatusNotFound)
+		jsonError(w, fmt.Sprintf("No unmarshaler for %q.", name), http.StatusNotFound)
 		return
 	}
 	buf := bufPool.Get().(*bytes.Buffer)
@@ -81,7 +81,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := jsoniter.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp)
 	Log("body", buf.String())
 	if err != nil {
-		err = errors.Wrap(err, buf.String())
+		err = errors.Errorf("%s: %w", buf.String(), err)
 		Log("got", buf.String(), "inp", inp, "error", err)
 		m := mapPool.Get().(map[string]interface{})
 		defer func() {
@@ -94,7 +94,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			io.MultiReader(bytes.NewReader(buf.Bytes()), r.Body),
 		).Decode(&m)
 		if err != nil {
-			jsonError(w, errors.Wrap(err, "decode "+buf.String()).Error(), http.StatusBadRequest)
+			jsonError(w, fmt.Sprintf("decode %s: %s", buf.String(), err), http.StatusBadRequest)
 			return
 		}
 		buf.Reset()
@@ -111,7 +111,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if err := mapstructure.WeakDecode(m, inp); err != nil {
-			jsonError(w, errors.Wrapf(err, "WeakDecode(%#v)", m).Error(), http.StatusBadRequest)
+			jsonError(w, fmt.Sprintf("WeakDecode(%#v): %s", m, err), http.StatusBadRequest)
 			return
 		}
 	}
@@ -137,14 +137,14 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	recv, err := h.Call(name, ctx, inp)
 	if err != nil {
 		Log("call", name, "error", fmt.Sprintf("%#v", err))
-		jsonError(w, errors.WithMessage(err, "Call "+name).Error(), statusCodeFromError(err))
+		jsonError(w, fmt.Sprintf("Call %s: %s", name, err), statusCodeFromError(err))
 		return
 	}
 
 	part, err := recv.Recv()
 	if err != nil {
 		Log("msg", "recv", "error", err)
-		jsonError(w, errors.WithMessage(err, "recv").Error(), statusCodeFromError(err))
+		jsonError(w, fmt.Sprintf("recv: %s", err), statusCodeFromError(err))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -181,7 +181,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func statusCodeFromError(err error) int {
-	st := status.Convert(errors.Cause(err))
+	st := status.Convert(errors.Unwrap(err))
 	switch st.Code() {
 	case codes.PermissionDenied, codes.Unauthenticated:
 		return http.StatusUnauthorized

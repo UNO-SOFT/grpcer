@@ -178,7 +178,7 @@ import (
 	"io"
 	context "golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
-	errors "github.com/pkg/errors"
+	errors "golang.org/x/xerrors"
 	grpcer "github.com/UNO-SOFT/grpcer"
 
 	pb "{{.Import}}"

@@ -21,8 +21,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/pkg/errors"
 	"golang.org/x/net/context"
+	errors "golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -91,7 +91,7 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 	log.Printf("dialConf=%+v", conf)
 	creds, err := credentials.NewClientTLSFromFile(conf.CAFile, conf.ServerHostOverride)
 	if err != nil {
-		return dialOpts, errors.Wrapf(err, "%q,%q", conf.CAFile, conf.ServerHostOverride)
+		return dialOpts, errors.Errorf("%q,%q: %w", conf.CAFile, conf.ServerHostOverride, err)
 	}
 	dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
 
@@ -118,10 +118,13 @@ func Connect(endpoint, CAFile, serverHostOverride string) (*grpc.ClientConn, err
 	}
 	opts, err := DialOpts(dc)
 	if err != nil {
-		return nil, errors.Wrapf(err, "%#v", dc)
+		return nil, errors.Errorf("%#v: %w", dc, err)
 	}
 	conn, err := grpc.Dial(endpoint, opts...)
-	return conn, errors.Wrap(err, endpoint)
+	if err != nil {
+		return nil, errors.Errorf("%s:  %w", endpoint, err)
+	}
+	return conn, nil
 }
 
 // vim: se noet fileencoding=utf-8:

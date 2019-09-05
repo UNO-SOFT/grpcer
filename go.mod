@@ -1,7 +1,6 @@
 module github.com/UNO-SOFT/grpcer
 
 require (
-	github.com/360EntSecGroup-Skylar/excelize v1.3.0 // indirect
 	github.com/golang/protobuf v1.2.0
 	github.com/json-iterator/go v1.1.6
 	github.com/kylelemons/godebug v1.1.0
@@ -13,6 +12,7 @@ require (
 	github.com/tgulacsi/go-xmlrpc v0.2.2
 	golang.org/x/net v0.0.0-20190514140710-3ec191127204
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
+	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7
 	google.golang.org/grpc v1.23.0
 )
 

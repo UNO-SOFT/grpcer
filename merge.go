@@ -1,4 +1,4 @@
-// Copyright 2017 Tamás Gulácsi
+// Copyright 2019 Tamás Gulácsi
 //
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	json "github.com/json-iterator/go"
-	"github.com/pkg/errors"
+	errors "golang.org/x/xerrors"
 )
 
 var errNewField = errors.New("new field")
@@ -47,7 +47,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		for {
 			if err := enc.Encode(part); err != nil {
 				Log("encode", part, "error", err)
-				return errors.Wrap(err, "encode part")
+				return errors.Errorf("encode part: %w", err)
 			}
 
 			part, err = recv.Recv()
@@ -102,7 +102,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		fh, err := ioutil.TempFile("", "merge-"+f.Name+"-")
 		if err != nil {
 			Log("tempFile", f.Name, "error", err)
-			return errors.Wrap(err, f.Name)
+			return errors.Errorf("%s: %w", f.Name, err)
 		}
 		os.Remove(fh.Name())
 		Log("fn", fh.Name())
@@ -137,12 +137,12 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		S, nS := sliceFields(part)
 		for _, f := range S {
 			if isSlice, ok := names[f.Name]; !(ok && isSlice) {
-				err = errors.Wrap(errNewField, f.Name)
+				err = errors.Errorf("%s: %w", f.Name, errNewField)
 			}
 		}
 		for _, f := range nS {
 			if isSlice, ok := names[f.Name]; !(ok && !isSlice) {
-				err = errors.Wrap(errNewField, f.Name)
+				err = errors.Errorf("%s: %w", f.Name, errNewField)
 			}
 		}
 		if err != nil {
