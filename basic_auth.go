@@ -33,7 +33,8 @@ func WithBasicAuth(ctx context.Context, username, password string) context.Conte
 var _ = credentials.PerRPCCredentials(basicAuthCreds{})
 
 type basicAuthCreds struct {
-	up string
+	up       string
+	insecure bool
 }
 
 // NewBasicAuth returns a PerRPCCredentials with the username and password.
@@ -41,8 +42,13 @@ func NewBasicAuth(username, password string) credentials.PerRPCCredentials {
 	return basicAuthCreds{up: username + ":" + password}
 }
 
+// NewInsecureBasicAuth returns an INSECURE (not requiring secure transport) PerRPCCredentials with the username and password.
+func NewInsecureBasicAuth(username, password string) credentials.PerRPCCredentials {
+	return basicAuthCreds{up: username + ":" + password, insecure: true}
+}
+
 // RequireTransportSecurity returns true - Basic Auth is unsecure in itself.
-func (ba basicAuthCreds) RequireTransportSecurity() bool { return true }
+func (ba basicAuthCreds) RequireTransportSecurity() bool { return !ba.insecure }
 
 // GetRequestMetadata extracts the authorization data from the context.
 func (ba basicAuthCreds) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {

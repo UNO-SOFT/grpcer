@@ -84,7 +84,8 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 		)
 	}
 	if conf.CAFile == "" {
-		return append(dialOpts, grpc.WithInsecure()), nil
+		ba := NewInsecureBasicAuth(conf.Username, conf.Password)
+		return append(dialOpts, grpc.WithInsecure(), grpc.WithPerRPCCredentials(ba)), nil
 	}
 	ba := NewBasicAuth(conf.Username, conf.Password)
 	dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(ba))
