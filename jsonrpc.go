@@ -118,10 +118,13 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	buf.Reset()
 	jenc := jsoniter.NewEncoder(buf)
 	_ = jenc.Encode(inp)
-	Log("inp", buf.String())
 	ctx := r.Context()
-	if u, p, ok := r.BasicAuth(); ok {
-		ctx = WithBasicAuth(ctx, u, p)
+	{
+		u, p, ok := r.BasicAuth()
+		Log("inp", buf.String(), "username", u)
+		if ok {
+			ctx = WithBasicAuth(ctx, u, p)
+		}
 	}
 	if _, ok := ctx.Deadline(); !ok {
 		timeout := h.Timeout
