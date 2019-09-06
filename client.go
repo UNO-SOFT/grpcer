@@ -44,11 +44,12 @@ type Client interface {
 
 // DialConfig contains the configuration variables.
 type DialConfig struct {
-	PathPrefix         string
-	CAFile             string
-	ServerHostOverride string
-	Username, Password string
-	Log                func(keyvals ...interface{}) error
+	PathPrefix                     string
+	CAFile                         string
+	ServerHostOverride             string
+	Username, Password             string
+	Log                            func(keyvals ...interface{}) error
+	AllowInsecurePasswordTransport bool
 }
 
 // DialOpts renders the dial options for calling a gRPC server.
@@ -84,8 +85,11 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 		)
 	}
 	if conf.CAFile == "" {
-		ba := NewInsecureBasicAuth(conf.Username, conf.Password)
-		return append(dialOpts, grpc.WithInsecure(), grpc.WithPerRPCCredentials(ba)), nil
+		if conf.AllowInsecurePasswordTransport {
+			ba := NewInsecureBasicAuth(conf.Username, conf.Password)
+			dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(ba))
+		}
+		return append(dialOpts, grpc.WithInsecure()), nil
 	}
 	ba := NewBasicAuth(conf.Username, conf.Password)
 	dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(ba))
