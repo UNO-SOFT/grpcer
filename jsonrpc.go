@@ -39,6 +39,7 @@ import (
 )
 
 var DefaultTimeout = 5 * time.Minute
+var MaxLogWidth = 1 << 10
 
 type JSONHandler struct {
 	Client
@@ -156,7 +157,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if m := r.URL.Query().Get("merge"); h.MergeStreams && m != "0" || !h.MergeStreams && m == "1" {
 		buf.Reset()
 		_ = jenc.Encode(part)
-		Log("part", limitWidth(buf.Bytes(), 256))
+		Log("part", limitWidth(buf.Bytes(), MaxLogWidth))
 		if err := mergeStreams(w, part, recv, Log); err != nil {
 			Log("mergeStreams", "error", err)
 		}
@@ -167,7 +168,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for {
 		buf.Reset()
 		_ = jenc.Encode(part)
-		Log("part", limitWidth(buf.Bytes(), 256))
+		Log("part", limitWidth(buf.Bytes(), MaxLogWidth))
 		if err := enc.Encode(part); err != nil {
 			Log("encode", part, "error", err)
 			return
