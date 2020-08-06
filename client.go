@@ -50,6 +50,7 @@ type DialConfig struct {
 	Username, Password             string
 	Log                            func(keyvals ...interface{}) error
 	AllowInsecurePasswordTransport bool
+	Tracer                         Tracer
 }
 
 // DialOpts renders the dial options for calling a gRPC server.
@@ -66,22 +67,30 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 		grpc.WithDecompressor(grpc.NewGZIPDecompressor()))
 
 	if prefix, Log := conf.PathPrefix, conf.Log; prefix != "" || Log != nil {
+		tracer := conf.Tracer
+		if tracer == nil {
+			tracer = LogTracer(Log, "github.com/UNO-SOFT/grpcer")
+		}
 		if Log == nil {
 			Log = func(keyvals ...interface{}) error { return nil }
 		}
 		dialOpts = append(dialOpts,
-			grpc.WithStreamInterceptor(
+			grpc.WithChainStreamInterceptor(
 				func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					Log("method", method)
 					//opts = append(opts, grpc.UseCompressor("gzip"))
 					return streamer(ctx, desc, cc, prefix+method, opts...)
-				}),
-			grpc.WithUnaryInterceptor(
+				},
+				OTelStreamClientInterceptor(tracer),
+			),
+			grpc.WithChainUnaryInterceptor(
 				func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 					Log("method", method)
 					//opts = append(opts, grpc.UseCompressor("gzip"))
 					return invoker(ctx, prefix+method, req, reply, cc, opts...)
-				}),
+				},
+				OTelUnaryClientInterceptor(tracer),
+			),
 		)
 	}
 	if conf.CAFile == "" {
