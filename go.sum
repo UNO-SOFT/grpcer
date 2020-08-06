@@ -23,6 +23,8 @@ github.com/DataDog/sketches-go v0.0.1/go.mod h1:Q5DbzQ+3AkgGwymQO7aZFNP7ns2lZKGt
 github.com/FiloSottile/b2 v0.0.0-20170207175032-b197f7a2c317/go.mod h1:3DBotXAz3n/g1px/orhrK7xBJLjfaJRRrsEAJiUYEtY=
 github.com/LK4D4/joincontext v0.0.0-20171026170139-1724345da6d5/go.mod h1:nxQPcNPR/34g+HcK2hEsF99O+GJgIkW/OmPl8wtzhmk=
 github.com/PuerkitoBio/goquery v1.5.0/go.mod h1:qD2PgZ9lccMbQlc7eEOjaeRlFQON7xY8kdmcsrnKqMg=
+github.com/UNO-SOFT/otel v0.0.1 h1:blmu8W1AFn65A/qnKxFEIOW7YSr7VS61GGdr6Pd9PM4=
+github.com/UNO-SOFT/otel v0.0.1/go.mod h1:tnxjrcEQkjkYeBrdVMNOriOTlQe/7ZMfskYZe0DQTD8=
 github.com/andybalholm/cascadia v1.0.0/go.mod h1:GsXiBklL0woXo1j/WYWtSYYC4ouU9PqHO0sqidkEA4Y=
 github.com/anmitsu/go-shlex v0.0.0-20161002113705-648efa622239/go.mod h1:2FmKhYUyUczH0OGQWaF5ceTx0UBShxjsH6f8oGKYe2c=
 github.com/antzucaro/matchr v0.0.0-20180616170659-cbc221335f3c/go.mod h1:bV/CkX4+ANGDaBwbHkt9kK287al/i9BsB18PRBvyqYo=

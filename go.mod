@@ -1,6 +1,7 @@
 module github.com/UNO-SOFT/grpcer
 
 require (
+	github.com/UNO-SOFT/otel v0.0.1
 	github.com/golang/protobuf v1.4.2
 	github.com/json-iterator/go v1.1.10
 	github.com/kylelemons/godebug v1.1.0
