@@ -17,11 +17,11 @@
 package grpcer
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strings"
 
-	"golang.org/x/net/context"
 	errors "golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

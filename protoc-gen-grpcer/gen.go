@@ -29,9 +29,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	protoc "github.com/golang/protobuf/protoc-gen-go/plugin"
+	"google.golang.org/protobuf/proto"
 )
 
 func main() {
