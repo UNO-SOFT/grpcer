@@ -1,4 +1,4 @@
-// Copyright 2017 Tamás Gulácsi
+// Copyright 2017, 2020 Tamás Gulácsi
 //
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +25,6 @@ import (
 	"github.com/UNO-SOFT/otel"
 	"github.com/UNO-SOFT/otel/gtrace"
 
-	errors "golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -108,7 +107,7 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 	log.Printf("dialConf=%+v", conf)
 	creds, err := credentials.NewClientTLSFromFile(conf.CAFile, conf.ServerHostOverride)
 	if err != nil {
-		return dialOpts, errors.Errorf("%q,%q: %w", conf.CAFile, conf.ServerHostOverride, err)
+		return dialOpts, fmt.Errorf("%q,%q: %w", conf.CAFile, conf.ServerHostOverride, err)
 	}
 	dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
 
@@ -135,11 +134,11 @@ func Connect(endpoint, CAFile, serverHostOverride string) (*grpc.ClientConn, err
 	}
 	opts, err := DialOpts(dc)
 	if err != nil {
-		return nil, errors.Errorf("%#v: %w", dc, err)
+		return nil, fmt.Errorf("%#v: %w", dc, err)
 	}
 	conn, err := grpc.Dial(endpoint, opts...)
 	if err != nil {
-		return nil, errors.Errorf("%s:  %w", endpoint, err)
+		return nil, fmt.Errorf("%s:  %w", endpoint, err)
 	}
 	return conn, nil
 }

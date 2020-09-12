@@ -1,4 +1,4 @@
-// Copyright 2017 Tamás Gulácsi
+// Copyright 2017, 2020 Tamás Gulácsi
 //
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +18,7 @@ package grpcer
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,7 +34,6 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/json-iterator/go/extra"
 	"github.com/mitchellh/mapstructure"
-	errors "golang.org/x/xerrors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -82,7 +82,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := jsoniter.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp)
 	Log("body", buf.String())
 	if err != nil {
-		err = errors.Errorf("%s: %w", buf.String(), err)
+		err = fmt.Errorf("%s: %w", buf.String(), err)
 		Log("got", buf.String(), "inp", inp, "error", err)
 		m := mapPool.Get().(map[string]interface{})
 		defer func() {

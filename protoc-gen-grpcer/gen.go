@@ -1,4 +1,4 @@
-// Copyright 2016 Tamás Gulácsi
+// Copyright 2016, 2020 Tamás Gulácsi
 //
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
@@ -176,9 +176,10 @@ package {{.Package}}
 
 import (
 	"io"
-	context "golang.org/x/net/context"
+	"errors"
+	"context"
+
 	grpc "google.golang.org/grpc"
-	errors "golang.org/x/xerrors"
 	grpcer "github.com/UNO-SOFT/grpcer"
 
 	pb "{{.Import}}"
@@ -212,7 +213,7 @@ func (c client) Input(name string) interface{} {
 func (c client) Call(name string, ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
 	iac := c.m[name]
 	if iac.Call == nil {
-		return nil, errors.Errorf("name %q not found", name)
+		return nil, fmt.Errorf("name %q not found", name)
 	}
 	return iac.Call(ctx, in, opts...)
 }
