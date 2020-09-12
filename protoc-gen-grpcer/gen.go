@@ -175,9 +175,9 @@ var goTmpl = template.Must(template.
 package {{.Package}}
 
 import (
-	"io"
-	"errors"
 	"context"
+	"fmt"
+	"io"
 
 	grpc "google.golang.org/grpc"
 	grpcer "github.com/UNO-SOFT/grpcer"
