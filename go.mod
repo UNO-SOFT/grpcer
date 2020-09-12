@@ -1,7 +1,7 @@
 module github.com/UNO-SOFT/grpcer
 
 require (
-	github.com/UNO-SOFT/otel v0.0.1
+	github.com/UNO-SOFT/otel v0.0.3
 	github.com/golang/protobuf v1.4.2
 	github.com/json-iterator/go v1.1.10
 	github.com/kylelemons/godebug v1.1.0
@@ -11,16 +11,18 @@ require (
 	github.com/tgulacsi/go v0.6.1
 	github.com/tgulacsi/go-xmlrpc v0.2.2
 	github.com/tgulacsi/oracall v0.11.5
-	go.opentelemetry.io/otel v0.10.0
-	go.opentelemetry.io/otel/sdk v0.10.0
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381
+	golang.org/x/net v0.0.0-20200904194848-62affa334b73 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/sys v0.0.0-20200805065543-0cf7623e9dbd // indirect
+	golang.org/x/sys v0.0.0-20200909081042-eff7692f9009 // indirect
 	golang.org/x/text v0.3.3 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
-	google.golang.org/genproto v0.0.0-20200804151602-45615f50871c // indirect
-	google.golang.org/grpc v1.31.0
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	google.golang.org/genproto v0.0.0-20200911024640-645f7a48b24f // indirect
+	google.golang.org/grpc v1.32.0
 	google.golang.org/protobuf v1.25.0
 )
 
 go 1.13
+
+exclude go.opentelemetry.io/otel/sdk v0.11.0
+
+exclude go.opentelemetry.io/otel v0.11.0
