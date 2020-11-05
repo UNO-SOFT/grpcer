@@ -139,12 +139,17 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		for _, f := range S {
 			if isSlice, ok := names[f.Name]; !(ok && isSlice) {
 				err = fmt.Errorf("%s: %w", f.Name, errNewField)
+				break
 			}
 		}
 		for _, f := range nS {
 			if isSlice, ok := names[f.Name]; !(ok && !isSlice) {
 				err = fmt.Errorf("%s: %w", f.Name, errNewField)
+				break
 			}
+		}
+		if len(S) == 0 {
+			break
 		}
 		if err != nil {
 			Log("error", err)
