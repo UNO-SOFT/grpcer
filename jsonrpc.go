@@ -138,6 +138,9 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			defer cancel()
 		}
 	}
+	dl, _ := ctx.Deadline() 
+	Log("call", name, "deadline", dl)
+
 	recv, err := h.Call(name, ctx, inp)
 	if err != nil {
 		Log("call", name, "error", fmt.Sprintf("%#v", err))
