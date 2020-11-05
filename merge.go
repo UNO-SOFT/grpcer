@@ -177,9 +177,6 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 	w.Write([]byte("]"))
 
 	for _, fh := range files {
-		if err := fh.Sync(); err != nil {
-			Log("Sync", fh.Name(), "error", err)
-		}
 		if _, err := fh.Seek(0, 0); err != nil {
 			Log("Seek", fh.Name(), "error", err)
 			continue
