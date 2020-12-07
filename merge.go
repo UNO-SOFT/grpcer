@@ -29,13 +29,12 @@ import (
 	json "github.com/json-iterator/go"
 )
 
-var errNewField = errors.New("new field")
+var (
+	errNewField = errors.New("new field")
+	errWrongType = errors.New("wrong type")
+)
 
-func mergeStreams(w io.Writer, first interface{}, recv interface {
-	Recv() (interface{}, error)
-},
-	Log func(...interface{}) error,
-) error {
+func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interface{}, error) }, Log func(...interface{}) error) error {
 	if Log == nil {
 		Log = func(...interface{}) error { return nil }
 	}
@@ -97,9 +96,8 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 	w.Write(bytes.TrimSuffix(bytes.TrimSpace(buf.Bytes()), []byte{']'}))
 
 	names[slice[0].Name] = true
-
 	files := make(map[string]*os.File, len(slice)-1)
-	for _, f := range slice[1:] {
+	openFile := func(f field) error {
 		fh, err := ioutil.TempFile("", "merge-"+f.Name+"-")
 		if err != nil {
 			Log("tempFile", f.Name, "error", err)
@@ -107,7 +105,6 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		}
 		os.Remove(fh.Name())
 		Log("fn", fh.Name())
-		defer fh.Close()
 		files[f.Name] = fh
 		buf.Reset()
 		jenc.Encode(f.JSONName)
@@ -119,6 +116,19 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		fh.Write(trimSqBrs(buf.Bytes()))
 
 		names[f.Name] = true
+		return nil
+	}
+	defer func()  { 
+		for nm, fh := range files {
+			fh.Close()
+			delete(files, nm)
+		}
+	}()
+
+	for _, f := range slice[1:] {
+		if err := openFile(f); err != nil {
+			return err
+		}
 	}
 
 	var part interface{}
@@ -137,14 +147,23 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 
 		S, nS := sliceFields(part)
 		for _, f := range S {
-			if isSlice, ok := names[f.Name]; !(ok && isSlice) {
-				err = fmt.Errorf("%s: %w", f.Name, errNewField)
+			if isSlice, ok := names[f.Name]; !ok {
+				if err = openFile(f); err != nil {
+					break
+				}
+				//err = fmt.Errorf("%s: %w", f.Name, errNewField)
+				//break
+			} else if !isSlice {
+				err = fmt.Errorf("%s not slice: %w", f.Name, errWrongType)
 				break
 			}
 		}
 		for _, f := range nS {
-			if isSlice, ok := names[f.Name]; !(ok && !isSlice) {
+			if isSlice, ok := names[f.Name]; !ok {
 				err = fmt.Errorf("%s: %w", f.Name, errNewField)
+				break
+			} else if isSlice {
+				err = fmt.Errorf("%s slice: %w", f.Name, errWrongType)
 				break
 			}
 		}
@@ -167,7 +186,9 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		for _, f := range S {
 			fh := files[f.Name]
 			if _, err := fh.Write([]byte{','}); err != nil {
-				Log("write", fh.Name(), "error", err)
+				if Log != nil {
+					Log("write", fh.Name(), "error", err)
+				}
 			}
 			buf.Reset()
 			jenc.Encode(f.Value)
@@ -176,7 +197,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 	}
 	w.Write([]byte("]"))
 
-	for _, fh := range files {
+	for nm, fh := range files {
 		if _, err := fh.Seek(0, 0); err != nil {
 			Log("Seek", fh.Name(), "error", err)
 			continue
@@ -184,6 +205,8 @@ func mergeStreams(w io.Writer, first interface{}, recv interface {
 		w.Write([]byte{','})
 		io.Copy(w, fh)
 		w.Write([]byte{']'})
+		fh.Close()
+		delete(files, nm)
 	}
 	w.Write([]byte{'}', '\n'})
 	return nil
