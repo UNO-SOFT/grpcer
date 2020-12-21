@@ -26,7 +26,7 @@ func TestDateTime(t *testing.T) {
 	var w strings.Builder
 	err := jsoniter.NewEncoder(&w).Encode(x)
 	if err != nil {
-		t.Fatalf("encode %#v: %w", x, err)
+		t.Fatalf("encode %#v: %+v", x, err)
 	}
 	t.Log(w.String())
 	s := w.String()
