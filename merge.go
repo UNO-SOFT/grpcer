@@ -1,4 +1,4 @@
-// Copyright 2019, 2020 Tamás Gulácsi
+// Copyright 2019, 2021 Tamás Gulácsi
 //
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +18,7 @@ package grpcer
 import (
 	"bytes"
 	"fmt"
+
 	//json "encoding/json"
 	"errors"
 	"io"
@@ -30,7 +31,7 @@ import (
 )
 
 var (
-	errNewField = errors.New("new field")
+	errNewField  = errors.New("new field")
 	errWrongType = errors.New("wrong type")
 )
 
@@ -39,7 +40,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 		Log = func(...interface{}) error { return nil }
 	}
 
-	slice, notSlice := sliceFields(first)
+	slice, notSlice := SliceFields(first, "json")
 	if len(slice) == 0 {
 		var err error
 		part := first
@@ -75,7 +76,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 	w.Write([]byte("{"))
 	for _, f := range notSlice {
 		buf.Reset()
-		jenc.Encode(f.JSONName)
+		jenc.Encode(f.TagName)
 		w.Write(bytes.TrimSpace(buf.Bytes()))
 
 		w.Write([]byte{':'})
@@ -87,7 +88,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 		names[f.Name] = false
 	}
 	buf.Reset()
-	jenc.Encode(slice[0].JSONName)
+	jenc.Encode(slice[0].TagName)
 	w.Write(bytes.TrimSpace(buf.Bytes()))
 	w.Write([]byte(":"))
 
@@ -97,7 +98,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 
 	names[slice[0].Name] = true
 	files := make(map[string]*os.File, len(slice)-1)
-	openFile := func(f field) error {
+	openFile := func(f Field) error {
 		fh, err := ioutil.TempFile("", "merge-"+f.Name+"-")
 		if err != nil {
 			Log("tempFile", f.Name, "error", err)
@@ -107,7 +108,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 		Log("fn", fh.Name())
 		files[f.Name] = fh
 		buf.Reset()
-		jenc.Encode(f.JSONName)
+		jenc.Encode(f.TagName)
 		fh.Write(bytes.TrimSpace(buf.Bytes()))
 		io.WriteString(fh, ":[")
 
@@ -118,7 +119,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 		names[f.Name] = true
 		return nil
 	}
-	defer func()  { 
+	defer func() {
 		for nm, fh := range files {
 			fh.Close()
 			delete(files, nm)
@@ -145,7 +146,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 		jenc.Encode(part)
 		Log("part", limitWidth(buf.Bytes(), 256))
 
-		S, nS := sliceFields(part)
+		S, nS := SliceFields(part, "json")
 		for _, f := range S {
 			if isSlice, ok := names[f.Name]; !ok {
 				if err = openFile(f); err != nil {
@@ -212,13 +213,13 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 	return nil
 }
 
-type field struct {
-	Name     string
-	JSONName string
-	Value    interface{}
+type Field struct {
+	Name    string
+	TagName string
+	Value   interface{}
 }
 
-func sliceFields(part interface{}) (slice, notSlice []field) {
+func SliceFields(part interface{}, tagName string) (slice, notSlice []Field) {
 	rv := reflect.ValueOf(part)
 	t := rv.Type()
 	if t.Kind() == reflect.Ptr {
@@ -229,13 +230,18 @@ func sliceFields(part interface{}) (slice, notSlice []field) {
 	for i := 0; i < n; i++ {
 		f := rv.Field(i)
 		tf := t.Field(i)
-		fld := field{Name: tf.Name, Value: f.Interface()}
-		fld.JSONName = tf.Tag.Get("json")
-		if i := strings.IndexByte(fld.JSONName, ','); i >= 0 {
-			fld.JSONName = fld.JSONName[:i]
-		}
-		if fld.JSONName == "" {
-			fld.JSONName = fld.Name
+		fld := Field{Name: tf.Name, Value: f.Interface(), TagName: tf.Name}
+		if tagName != "" {
+			if fld.TagName = tf.Tag.Get(tagName); fld.TagName == "" {
+				fld.TagName = fld.Name
+			} else {
+				if i := strings.IndexByte(fld.TagName, ','); i >= 0 {
+					fld.TagName = fld.TagName[:i]
+				}
+				if fld.TagName == "-" { // Skip field
+					continue
+				}
+			}
 		}
 
 		if f.Type().Kind() != reflect.Slice {
