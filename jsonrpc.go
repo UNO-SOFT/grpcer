@@ -38,8 +38,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var DefaultTimeout = 5 * time.Minute
-var MaxLogWidth = 1 << 10
+var (
+	DefaultTimeout = 5 * time.Minute
+	MaxLogWidth    = 1 << 10
+
+	ErrNotFound = errors.New("not found")
+)
+
+type RequestInfo interface {
+	Name() string
+}
 
 type JSONHandler struct {
 	Client
@@ -60,17 +68,17 @@ func jsonError(w http.ResponseWriter, errMsg string, code int) {
 	jsoniter.NewEncoder(w).Encode(e)
 }
 
-func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (RequestInfo, interface{}, error) {
 	Log := h.Log
 	if Log == nil {
 		Log = func(...interface{}) error { return nil }
 	}
-	name := path.Base(r.URL.Path)
-	Log("name", name)
-	inp := h.Input(name)
+
+	request := requestInfo{name: path.Base(r.URL.Path)}
+	Log("name", request.name)
+	inp := h.Input(request.name)
 	if inp == nil {
-		jsonError(w, fmt.Sprintf("No unmarshaler for %q.", name), http.StatusNotFound)
-		return
+		return request, nil, fmt.Errorf("no unmarshaler for %q: %w", request.name, ErrNotFound)
 	}
 	buf := bufPool.Get().(*bytes.Buffer)
 	defer func() {
@@ -81,45 +89,70 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	buf.Reset()
 	err := jsoniter.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp)
 	Log("body", buf.String())
-	if err != nil {
-		err = fmt.Errorf("%s: %w", buf.String(), err)
-		Log("got", buf.String(), "inp", inp, "error", err)
-		m := mapPool.Get().(map[string]interface{})
-		defer func() {
-			for k := range m {
-				delete(m, k)
-			}
-			mapPool.Put(m)
-		}()
-		err := jsoniter.NewDecoder(
-			io.MultiReader(bytes.NewReader(buf.Bytes()), r.Body),
-		).Decode(&m)
-		if err != nil {
-			jsonError(w, fmt.Sprintf("decode %s: %s", buf.String(), err), http.StatusBadRequest)
-			return
+	if err == nil {
+		return request, inp, nil
+	}
+	err = fmt.Errorf("%s: %w", buf.String(), err)
+	Log("got", buf.String(), "inp", inp, "error", err)
+	m := mapPool.Get().(map[string]interface{})
+	defer func() {
+		for k := range m {
+			delete(m, k)
 		}
-		buf.Reset()
+		mapPool.Put(m)
+	}()
+	if err = jsoniter.NewDecoder(
+		io.MultiReader(bytes.NewReader(buf.Bytes()), r.Body),
+	).Decode(&m); err != nil {
+		return request, nil, fmt.Errorf("decode %s: %w", buf.String(), err)
+	}
+	buf.Reset()
 
-		// mapstruct
-		for k, v := range m {
-			if s, ok := v.(string); ok && s == "" {
-				delete(m, k)
-				continue
-			}
-			f, _ := utf8.DecodeRune([]byte(k))
-			if unicode.IsLower(f) {
-				m[CamelCase(k)] = v
-			}
+	// mapstruct
+	for k, v := range m {
+		if s, ok := v.(string); ok && s == "" {
+			delete(m, k)
+			continue
 		}
-		if err := mapstructure.WeakDecode(m, inp); err != nil {
-			jsonError(w, fmt.Sprintf("WeakDecode(%#v): %s", m, err), http.StatusBadRequest)
-			return
+		f, _ := utf8.DecodeRune([]byte(k))
+		if unicode.IsLower(f) {
+			m[CamelCase(k)] = v
 		}
 	}
+	if err = mapstructure.WeakDecode(m, inp); err != nil {
+		err = fmt.Errorf("weakdecode(%#v): %w", m, err)
+	}
+	return request, inp, err
+}
+
+type requestInfo struct {
+	name string
+}
+
+func (info requestInfo) Name() string { return info.name }
+
+func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	Log := h.Log
+	if Log == nil {
+		Log = func(...interface{}) error { return nil }
+	}
+
+	ctx := r.Context()
+	request, inp, err := h.DecodeRequest(ctx, r)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	name := request.Name()
+
+	buf := bufPool.Get().(*bytes.Buffer)
+	defer func() {
+		buf.Reset()
+		bufPool.Put(buf)
+	}()
 	buf.Reset()
 	jenc := jsoniter.NewEncoder(buf)
 	_ = jenc.Encode(inp)
-	ctx := r.Context()
 	{
 		u, p, ok := r.BasicAuth()
 		Log("inp", buf.String(), "username", u)
@@ -138,7 +171,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			defer cancel()
 		}
 	}
-	dl, _ := ctx.Deadline() 
+	dl, _ := ctx.Deadline()
 	Log("call", name, "deadline", dl)
 
 	recv, err := h.Call(name, ctx, inp)
