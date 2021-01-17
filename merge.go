@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	json "github.com/json-iterator/go"
+	"github.com/klauspost/compress/zstd"
 )
 
 var (
@@ -97,15 +98,13 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 	w.Write(bytes.TrimSuffix(bytes.TrimSpace(buf.Bytes()), []byte{']'}))
 
 	names[slice[0].Name] = true
-	files := make(map[string]*os.File, len(slice)-1)
+	files := make(map[string]*TempFile, len(slice)-1)
 	openFile := func(f Field) error {
-		fh, err := ioutil.TempFile("", "merge-"+f.Name+"-")
+		fh, err := NewTempFile("", "merge-"+f.Name+"-*.json.zst")
 		if err != nil {
 			Log("tempFile", f.Name, "error", err)
 			return fmt.Errorf("%s: %w", f.Name, err)
 		}
-		os.Remove(fh.Name())
-		Log("fn", fh.Name())
 		files[f.Name] = fh
 		buf.Reset()
 		jenc.Encode(f.TagName)
@@ -188,7 +187,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 			fh := files[f.Name]
 			if _, err := fh.Write([]byte{','}); err != nil {
 				if Log != nil {
-					Log("write", fh.Name(), "error", err)
+					Log("msg", "write", "error", err)
 				}
 			}
 			buf.Reset()
@@ -199,12 +198,14 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 	w.Write([]byte("]"))
 
 	for nm, fh := range files {
-		if _, err := fh.Seek(0, 0); err != nil {
-			Log("Seek", fh.Name(), "error", err)
+		rc, err := fh.GetReader()
+		if err != nil {
+			Log("msg", "GetReader", "name", nm, "error", err)
 			continue
 		}
 		w.Write([]byte{','})
-		io.Copy(w, fh)
+		io.Copy(w, rc)
+		rc.Close()
 		w.Write([]byte{']'})
 		fh.Close()
 		delete(files, nm)
@@ -271,3 +272,64 @@ func trimSqBrs(b []byte) []byte {
 	}
 	return b
 }
+
+type TempFile struct {
+	io.WriteCloser
+	file *os.File
+}
+
+// NewTempFile creates a new compressed tempfile, that can be read back.
+func NewTempFile(dir, name string) (*TempFile, error) {
+	fh, err := ioutil.TempFile(dir, name)
+	if err != nil {
+		return nil, err
+	}
+	os.Remove(fh.Name())
+	zw, err := zstd.NewWriter(fh, zstd.WithEncoderLevel(zstd.SpeedFastest))
+	if err != nil {
+		fh.Close()
+		return nil, err
+	}
+	return &TempFile{WriteCloser: zw, file: fh}, nil
+}
+func (f *TempFile) Close() error {
+	zw, file := f.WriteCloser, f.file
+	f.WriteCloser, f.file = nil, nil
+	var firstErr error
+	if zw != nil {
+		firstErr = zw.Close()
+	}
+	if file != nil {
+		if err := file.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+		os.Remove(file.Name())
+	}
+	return firstErr
+}
+
+// GetReader finishes the writing of the temp file, and returns an io.ReadCloser for reading it back.
+func (f *TempFile) GetReader() (io.ReadCloser, error) {
+	zw := f.WriteCloser
+	f.WriteCloser = nil
+	if err := zw.Close(); err != nil {
+		return nil, err
+	}
+	if _, err := f.file.Seek(0, 0); err != nil {
+		f.Close()
+		return nil, err
+	}
+	zr, err := zstd.NewReader(f.file)
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	return struct {
+		io.Reader
+		io.Closer
+	}{zr, closerFunc(func() error { zr.Close(); return f.file.Close() })}, nil
+}
+
+type closerFunc func() error
+
+func (f closerFunc) Close() error { return f() }

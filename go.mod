@@ -1,8 +1,11 @@
 module github.com/UNO-SOFT/grpcer
 
+go 1.15
+
 require (
 	github.com/golang/protobuf v1.4.2
 	github.com/json-iterator/go v1.1.10
+	github.com/klauspost/compress v1.8.2
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mitchellh/mapstructure v1.3.3
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -19,5 +22,3 @@ require (
 	google.golang.org/grpc v1.32.0
 	google.golang.org/protobuf v1.25.0
 )
-
-go 1.13
