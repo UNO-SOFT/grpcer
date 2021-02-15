@@ -37,13 +37,13 @@ func TestMerge(t *testing.T) {
 	}
 	repComma := strings.NewReplacer(`",`, `",`+"\n")
 	for tN, tC := range map[string]struct {
-		Input []interface{}
 		Want  string
+		Input []interface{}
 	}{
 		"noSlice": {
 			Input: toIntf([]struct {
-				A int
 				B string
+				A int
 			}{{A: 1, B: "x"}}),
 			Want: `{"A":1,"B":"x"}`,
 		},

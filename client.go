@@ -46,11 +46,11 @@ type Client interface {
 
 // DialConfig contains the configuration variables.
 type DialConfig struct {
+	Log                            func(keyvals ...interface{}) error
 	PathPrefix                     string
 	CAFile                         string
 	ServerHostOverride             string
 	Username, Password             string
-	Log                            func(keyvals ...interface{}) error
 	AllowInsecurePasswordTransport bool
 	//Tracer                         otel.Tracer
 }
@@ -70,10 +70,10 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 
 	if prefix, Log := conf.PathPrefix, conf.Log; prefix != "" || Log != nil {
 		/*
-		tracer := conf.Tracer
-		if tracer == nil {
-			tracer = otel.LogTracer(Log, "github.com/UNO-SOFT/grpcer")
-		}
+			tracer := conf.Tracer
+			if tracer == nil {
+				tracer = otel.LogTracer(Log, "github.com/UNO-SOFT/grpcer")
+			}
 		*/
 		if Log == nil {
 			Log = func(keyvals ...interface{}) error { return nil }

@@ -293,9 +293,9 @@ func genGo(destPkg, protoFn string, svc *descriptor.ServiceDescriptorProto, depe
 	}
 	var buf bytes.Buffer
 	err := goTmpl.Execute(&buf, struct {
+		*descriptor.ServiceDescriptorProto
 		ProtoFile, Package, Import string
 		Dependencies               []string
-		*descriptor.ServiceDescriptorProto
 	}{
 		ProtoFile:              protoFn,
 		Package:                destPkg,

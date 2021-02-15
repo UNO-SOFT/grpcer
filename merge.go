@@ -215,9 +215,9 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 }
 
 type Field struct {
+	Value   interface{}
 	Name    string
 	TagName string
-	Value   interface{}
 }
 
 func SliceFields(part interface{}, tagName string) (slice, notSlice []Field) {

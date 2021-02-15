@@ -51,9 +51,9 @@ type RequestInfo interface {
 
 type JSONHandler struct {
 	Client
-	MergeStreams bool
 	Log          func(...interface{}) error
 	Timeout      time.Duration
+	MergeStreams bool
 }
 
 func jsonError(w http.ResponseWriter, errMsg string, code int) {
