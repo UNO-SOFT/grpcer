@@ -1,3 +1,7 @@
+// Copyright 2017, 2021 Tamás Gulácsi.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 package grpcer_test
 
 import (
@@ -5,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	jsoniter "github.com/json-iterator/go"
+	json "github.com/goccy/go-json"
 	"github.com/tgulacsi/oracall/custom"
 )
 
@@ -24,7 +28,7 @@ func TestDateTime(t *testing.T) {
 	}
 
 	var w strings.Builder
-	err := jsoniter.NewEncoder(&w).Encode(x)
+	err := json.NewEncoder(&w).Encode(x)
 	if err != nil {
 		t.Fatalf("encode %#v: %+v", x, err)
 	}
@@ -32,13 +36,13 @@ func TestDateTime(t *testing.T) {
 	s := w.String()
 
 	var y testStruct
-	if err = jsoniter.NewDecoder(strings.NewReader(s)).Decode(&y); err != nil {
+	if err = json.NewDecoder(strings.NewReader(s)).Decode(&y); err != nil {
 		t.Fatal(err)
 	}
 	t.Log(y)
 
 	y = testStruct{}
-	if err = jsoniter.NewDecoder(strings.NewReader(
+	if err = json.NewDecoder(strings.NewReader(
 		`{"DT":"2006-01-02 16:04"}`,
 	)).Decode(&y); err != nil {
 		t.Error(err)

@@ -1,17 +1,6 @@
-// Copyright 2017, 2020 Tamás Gulácsi
+// Copyright 2017, 2021 Tamás Gulácsi
 //
-//
-//    Licensed under the Apache License, Version 2.0 (the "License");
-//    you may not use this file except in compliance with the License.
-//    You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-//    Unless required by applicable law or agreed to in writing, software
-//    distributed under the License is distributed on an "AS IS" BASIS,
-//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//    See the License for the specific language governing permissions and
-//    limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
 
 package grpcer
 
@@ -23,16 +12,13 @@ import (
 	"io"
 	"net/http"
 	"path"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
-	"unsafe"
 
-	jsoniter "github.com/json-iterator/go"
-	"github.com/json-iterator/go/extra"
+	json "github.com/goccy/go-json"
 	"github.com/mitchellh/mapstructure"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -65,7 +51,7 @@ func jsonError(w http.ResponseWriter, errMsg string, code int) {
 	e := struct {
 		Error string
 	}{Error: errMsg}
-	jsoniter.NewEncoder(w).Encode(e)
+	json.NewEncoder(w).Encode(e)
 }
 
 func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (RequestInfo, interface{}, error) {
@@ -87,7 +73,7 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 	}()
 
 	buf.Reset()
-	err := jsoniter.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp)
+	err := json.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp)
 	Log("body", buf.String())
 	if err == nil {
 		return request, inp, nil
@@ -101,7 +87,7 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 		}
 		mapPool.Put(m)
 	}()
-	if err = jsoniter.NewDecoder(
+	if err = json.NewDecoder(
 		io.MultiReader(bytes.NewReader(buf.Bytes()), r.Body),
 	).Decode(&m); err != nil {
 		return request, nil, fmt.Errorf("decode %s: %w", buf.String(), err)
@@ -151,7 +137,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		bufPool.Put(buf)
 	}()
 	buf.Reset()
-	jenc := jsoniter.NewEncoder(buf)
+	jenc := json.NewEncoder(buf)
 	_ = jenc.Encode(inp)
 	{
 		u, p, ok := r.BasicAuth()
@@ -200,7 +186,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	enc := jsoniter.NewEncoder(w)
+	enc := json.NewEncoder(w)
 	for {
 		buf.Reset()
 		_ = jenc.Encode(part)
@@ -307,39 +293,5 @@ func SnakeCase(text string) string {
 		text)
 	return string(b)
 }
-
-func init() {
-	extra.RegisterFuzzyDecoders()
-	SetNoOmit(func(nm string) bool { return strings.HasSuffix(nm, "_Output") })
-}
-func SetNoOmit(filter func(string) bool) {
-	jsoniter.RegisterExtension(&JSNoOmitEmptyExtension{filter: filter})
-}
-
-type JSNoOmitEmptyExtension struct {
-	jsoniter.DummyExtension
-	filter func(string) bool
-}
-
-func (no *JSNoOmitEmptyExtension) UpdateStructDescriptor(sd *jsoniter.StructDescriptor) {
-	if !no.filter(sd.Type.Type1().Name()) {
-		return
-	}
-	for _, binding := range sd.Fields {
-		switch binding.Field.Type().Kind() {
-		case reflect.Float32, reflect.Float64,
-			reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-			reflect.String:
-			binding.Encoder = nonEmptyEncoder{binding.Encoder}
-		}
-	}
-}
-
-type nonEmptyEncoder struct {
-	jsoniter.ValEncoder
-}
-
-func (ne nonEmptyEncoder) IsEmpty(ptr unsafe.Pointer) bool { return false }
 
 // vim: set fileencoding=utf-8 noet:
