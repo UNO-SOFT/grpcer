@@ -1,64 +1,29 @@
-// Copyright 2016, 2020 Tamás Gulácsi
+// Copyright 2016, 2021 Tamás Gulácsi
 //
-//
-//    Licensed under the Apache License, Version 2.0 (the "License");
-//    you may not use this file except in compliance with the License.
-//    You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-//    Unless required by applicable law or agreed to in writing, software
-//    distributed under the License is distributed on an "AS IS" BASIS,
-//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//    See the License for the specific language governing permissions and
-//    limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
 
 // protoc-gen-grpc generates a grpcer.Client from the given protoc file.
 package main
 
 import (
-	"bytes"
-	"io/ioutil"
-	"log"
-	"os"
+	"io"
 	"path/filepath"
 	"strings"
-	"sync"
 	"text/template"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	protoc "github.com/golang/protobuf/protoc-gen-go/plugin"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
+var opts protogen.Options
+
 func main() {
-	data, err := ioutil.ReadAll(os.Stdin)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var req protoc.CodeGeneratorRequest
-	if err = proto.Unmarshal(data, &req); err != nil {
-		log.Fatal(err)
-	}
-
-	var resp protoc.CodeGeneratorResponse
-	if err := Generate(&resp, req); err != nil {
-		log.Fatal(err)
-	}
-	data, err = proto.Marshal(&resp)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if _, err = os.Stdout.Write(data); err != nil {
-		log.Fatal(err)
-	}
+	opts.Run(Main)
 }
 
-func Generate(resp *protoc.CodeGeneratorResponse, req protoc.CodeGeneratorRequest) error {
+func Main(p *protogen.Plugin) error {
+	req := p.Request
 	destPkg := req.GetParameter()
 	if destPkg == "" {
 		destPkg = "main"
@@ -67,8 +32,8 @@ func Generate(resp *protoc.CodeGeneratorResponse, req protoc.CodeGeneratorReques
 	// Find roots.
 	rootNames := req.GetFileToGenerate()
 	files := req.GetProtoFile()
-	roots := make(map[string]*descriptor.FileDescriptorProto, len(rootNames))
-	allTypes := make(map[string]*descriptor.DescriptorProto, 1024)
+	roots := make(map[string]*descriptorpb.FileDescriptorProto, len(rootNames))
+	allTypes := make(map[string]*descriptorpb.DescriptorProto, 1024)
 	var found int
 	for i := len(files) - 1; i >= 0; i-- {
 		f := files[i]
@@ -87,7 +52,7 @@ func Generate(resp *protoc.CodeGeneratorResponse, req protoc.CodeGeneratorReques
 		}
 	}
 
-	msgTypes := make(map[string]*descriptor.DescriptorProto, len(allTypes))
+	msgTypes := make(map[string]*descriptorpb.DescriptorProto, len(allTypes))
 	for _, root := range roots {
 		//k := "." + root.GetName() + "."
 		var k string
@@ -103,31 +68,18 @@ func Generate(resp *protoc.CodeGeneratorResponse, req protoc.CodeGeneratorReques
 		}
 	}
 
-	var grp errgroup.Group
-	resp.File = make([]*protoc.CodeGeneratorResponse_File, 0, len(roots))
-	var mu sync.Mutex
 	for _, root := range roots {
 		root := root
 		pkg := root.GetName()
 		for _, svc := range root.GetService() {
-			grp.Go(func() error {
-				destFn := strings.TrimSuffix(filepath.Base(pkg), ".proto") + ".grpcer.go"
-				content, err := genGo(destPkg, pkg, svc, root.GetDependency())
-				mu.Lock()
-				resp.File = append(resp.File, &protoc.CodeGeneratorResponse_File{
-					Name:    &destFn,
-					Content: &content,
-				})
-				mu.Unlock()
-				return err
-			})
+			svc := svc
+			destFn := strings.TrimSuffix(filepath.Base(pkg), ".proto") + ".grpcer.go"
+			if err := genGo(p.NewGeneratedFile(destFn, protogen.GoImportPath(pkg)), destPkg, pkg, svc, root.GetDependency()); err != nil {
+				p.Error(err)
+			}
 		}
 	}
 
-	if err := grp.Wait(); err != nil {
-		errS := err.Error()
-		resp.Error = &errS
-	}
 	return nil
 }
 
@@ -269,7 +221,7 @@ var _ = multiRecv(nil) // against "unused"
 
 `))
 
-func genGo(destPkg, protoFn string, svc *descriptor.ServiceDescriptorProto, dependencies []string) (string, error) {
+func genGo(w io.Writer, destPkg, protoFn string, svc *descriptorpb.ServiceDescriptorProto, dependencies []string) error {
 	if destPkg == "" {
 		destPkg = "main"
 	}
@@ -291,9 +243,8 @@ func genGo(destPkg, protoFn string, svc *descriptor.ServiceDescriptorProto, depe
 		}
 		deps = append(deps, k)
 	}
-	var buf bytes.Buffer
-	err := goTmpl.Execute(&buf, struct {
-		*descriptor.ServiceDescriptorProto
+	return goTmpl.Execute(w, struct {
+		*descriptorpb.ServiceDescriptorProto
 		ProtoFile, Package, Import string
 		Dependencies               []string
 	}{
@@ -303,7 +254,6 @@ func genGo(destPkg, protoFn string, svc *descriptor.ServiceDescriptorProto, depe
 		Dependencies:           deps,
 		ServiceDescriptorProto: svc,
 	})
-	return buf.String(), err
 }
 
 // vim: set fileencoding=utf-8 noet:
