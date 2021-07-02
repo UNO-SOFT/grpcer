@@ -54,6 +54,8 @@ func jsonError(w http.ResponseWriter, errMsg string, code int) {
 	json.NewEncoder(w).Encode(e)
 }
 
+var msDecConf = mapstructure.DecoderConfig{WeaklyTypedInput: true}
+
 func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (RequestInfo, interface{}, error) {
 	Log := h.Log
 	if Log == nil {
@@ -78,8 +80,8 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 	if err == nil {
 		return request, inp, nil
 	}
-	err = fmt.Errorf("%s: %w", buf.String(), err)
-	Log("got", buf.String(), "inp", inp, "error", err)
+	origErr := fmt.Errorf("%s: %w", buf.String(), err)
+	Log("got", buf.String(), "inp", inp, "error", origErr)
 	m := mapPool.Get().(map[string]interface{})
 	defer func() {
 		for k := range m {
@@ -90,7 +92,7 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 	if err = json.NewDecoder(
 		io.MultiReader(bytes.NewReader(buf.Bytes()), r.Body),
 	).Decode(&m); err != nil {
-		return request, nil, fmt.Errorf("decode %s: %w", buf.String(), err)
+		return request, nil, fmt.Errorf("decode %s: %w (was: %+v)", buf.String(), err, origErr)
 	}
 	buf.Reset()
 
@@ -105,10 +107,14 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 			m[CamelCase(k)] = v
 		}
 	}
-	if err = mapstructure.WeakDecode(m, inp); err != nil {
-		err = fmt.Errorf("weakdecode(%#v): %w", m, err)
+	decConf := msDecConf
+	decConf.Result = inp
+	if dec, err := mapstructure.NewDecoder(&decConf); err != nil {
+		return request, inp, err
+	} else if err = dec.Decode(m); err != nil {
+		return request, inp, fmt.Errorf("weakdecode(%#v): %w (was: %+v)", m, err, origErr)
 	}
-	return request, inp, err
+	return request, inp, nil
 }
 
 type requestInfo struct {
