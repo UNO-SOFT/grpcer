@@ -7,11 +7,13 @@ package grpcer
 import (
 	"bytes"
 	"context"
+	"encoding"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"path"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -54,7 +56,32 @@ func jsonError(w http.ResponseWriter, errMsg string, code int) {
 	json.NewEncoder(w).Encode(e)
 }
 
-var msDecConf = mapstructure.DecoderConfig{WeaklyTypedInput: true}
+var msDecConf = mapstructure.DecoderConfig{
+	Squash:           true,
+	WeaklyTypedInput: true,
+	DecodeHook: func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+		if f.Kind() != reflect.String {
+			return data, nil
+		}
+		if t == reflect.TypeOf(time.Time{}) {
+			return time.ParseInLocation(time.RFC3339, data.(string), time.Local)
+		}
+		if t.Kind() != reflect.Ptr {
+			return data, nil
+		}
+		tv := reflect.New(t.Elem()).Interface()
+		if tu, ok := tv.(encoding.TextUnmarshaler); ok {
+			err := tu.UnmarshalText([]byte(data.(string)))
+			return tu, err
+		}
+		if t.Kind() == reflect.Struct {
+			if _, ok := t.FieldByName("Time"); ok {
+				return time.ParseInLocation(time.RFC3339, data.(string), time.Local)
+			}
+		}
+		return data, nil
+	},
+}
 
 func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (RequestInfo, interface{}, error) {
 	Log := h.Log
