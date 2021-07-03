@@ -103,7 +103,7 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 
 	buf.Reset()
 	err := json.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp)
-	Log("body", buf.String())
+	Log("body", buf.String(), "error", err)
 	if err == nil {
 		return request, inp, nil
 	}
