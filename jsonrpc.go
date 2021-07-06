@@ -84,6 +84,25 @@ var msDecConf = mapstructure.DecoderConfig{
 				return time.ParseInLocation(time.RFC3339, data.(string), time.Local)
 			}
 		}
+
+		s := data.(string)
+		switch t.Kind() {
+		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+			return strings.TrimLeft(s, " 0"), nil
+
+		case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
+			s = strings.TrimSpace(s)
+			neg := strings.HasPrefix(s, "-")
+			if neg {
+				s = s[1:]
+			}
+			s = strings.TrimLeft(s, " 0")
+			if neg {
+				s = "-" + s
+			}
+			return s, nil
+		}
+
 		//fmt.Printf("t=%#v (%v)\n", t, t.Kind())
 		tv := reflect.New(t)
 		if tu, ok := tv.Interface().(encoding.TextUnmarshaler); ok {
