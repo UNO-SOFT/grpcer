@@ -62,24 +62,44 @@ func jsonError(w http.ResponseWriter, errMsg string, code int) {
 var msDecConf = mapstructure.DecoderConfig{
 	Squash:           true,
 	WeaklyTypedInput: true,
-	DecodeHook: func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+	DecodeHook: func(f reflect.Type, t reflect.Type, data interface{}) (res interface{}, err error) {
+		if false {
+			fmt.Printf("\nf:%+v t:%+v data:%#v\n\n", f, t, data)
+			defer func() {
+				fmt.Printf("res=%#v err=%+v\n", res, err)
+			}()
+		}
 		if f.Kind() != reflect.String {
 			return data, nil
 		}
 		if t == reflect.TypeOf(time.Time{}) {
+			//fmt.Println("t1")
 			return time.ParseInLocation(time.RFC3339, data.(string), time.Local)
 		}
-		if t.Kind() != reflect.Ptr {
-			return data, nil
+		//fmt.Printf("t=%v\n", t.Kind())
+		if t.Kind() == reflect.Ptr {
+			t = t.Elem()
+			if t == reflect.TypeOf(time.Time{}) {
+				//fmt.Println("t2")
+				return time.ParseInLocation(time.RFC3339, data.(string), time.Local)
+			}
 		}
-		tv := reflect.New(t.Elem()).Interface()
-		if tu, ok := tv.(encoding.TextUnmarshaler); ok {
+		//fmt.Printf("t=%#v (%v)\n", t, t.Kind())
+		tv := reflect.New(t)
+		if tu, ok := tv.Interface().(encoding.TextUnmarshaler); ok {
+			//fmt.Println("tu\n")
 			err := tu.UnmarshalText([]byte(data.(string)))
 			return tu, err
 		}
 		if t.Kind() == reflect.Struct {
+			//fmt.Println("struct")
 			if _, ok := t.FieldByName("Time"); ok {
-				return time.ParseInLocation(time.RFC3339, data.(string), time.Local)
+				tim, err := time.ParseInLocation(time.RFC3339, data.(string), time.Local)
+				if err != nil {
+					return data, err
+				}
+				tv.FieldByName("Time").Set(reflect.ValueOf(tim))
+				return tv.Interface(), nil
 			}
 		}
 		return data, nil
@@ -114,7 +134,7 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 	Log("got", buf.String(), "inp", inp, "error", origErr)
 	if h.LaxDecodeRateLimiter != nil {
 		if err = h.LaxDecodeRateLimiter.Wait(ctx); err != nil {
-			return request, inp, err
+			return request, inp, fmt.Errorf("timeout converting: %w (was: %+v)", err, origErr)
 		}
 	}
 	m := mapPool.Get().(map[string]interface{})
@@ -145,7 +165,7 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 	decConf := msDecConf
 	decConf.Result = inp
 	if dec, err := mapstructure.NewDecoder(&decConf); err != nil {
-		return request, inp, err
+		return request, inp, fmt.Errorf("mapstructure.NewDecoder: %w (was: %+v)", err, origErr)
 	} else if err = dec.Decode(m); err != nil {
 		return request, inp, fmt.Errorf("weakdecode(%#v): %w (was: %+v)", m, err, origErr)
 	}
