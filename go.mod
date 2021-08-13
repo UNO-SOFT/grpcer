@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	github.com/goccy/go-json v0.7.3
-	github.com/klauspost/compress v1.13.1
+	github.com/klauspost/compress v1.13.4
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/tgulacsi/go v0.15.1
