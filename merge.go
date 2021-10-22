@@ -216,8 +216,11 @@ func SliceFields(part interface{}, tagName string) (slice, notSlice []Field) {
 	}
 	n := t.NumField()
 	for i := 0; i < n; i++ {
-		f := rv.Field(i)
 		tf := t.Field(i)
+		if !tf.IsExported() {
+			continue
+		}
+		f := rv.Field(i)
 		fld := Field{Name: tf.Name, Value: f.Interface(), TagName: tf.Name}
 		if tagName != "" {
 			if fld.TagName = tf.Tag.Get(tagName); fld.TagName == "" {
