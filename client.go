@@ -62,20 +62,21 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 			return nil, err
 		}
 		providerOpt := gtrace.WithTracerProvider(provider)
+		propOpt := gtrace.WithPropagators(otel.HTTPPropagators)
 		dialOpts = append(dialOpts,
 			grpc.WithChainStreamInterceptor(
 				func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					Log("method", method)
 					return streamer(ctx, desc, cc, prefix+method, opts...)
 				},
-				gtrace.StreamClientInterceptor(providerOpt),
+				gtrace.StreamClientInterceptor(providerOpt, propOpt),
 			),
 			grpc.WithChainUnaryInterceptor(
 				func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 					Log("method", method)
 					return invoker(ctx, prefix+method, req, reply, cc, opts...)
 				},
-				gtrace.UnaryClientInterceptor(providerOpt),
+				gtrace.UnaryClientInterceptor(providerOpt, propOpt),
 			),
 		)
 	}
