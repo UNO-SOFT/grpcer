@@ -11,8 +11,8 @@ import (
 	"log"
 	"strings"
 
-	//"github.com/UNO-SOFT/otel"
-	//"github.com/UNO-SOFT/otel/gtrace"
+	"github.com/UNO-SOFT/otel"
+	"github.com/UNO-SOFT/otel/gtrace"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -41,7 +41,6 @@ type DialConfig struct {
 	ServerHostOverride             string
 	Username, Password             string
 	AllowInsecurePasswordTransport bool
-	//Tracer                         otel.Tracer
 }
 
 // DialOpts renders the dial options for calling a gRPC server.
@@ -57,32 +56,26 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 		//lint:ignore SA1019 the UseCompressor API is experimental yet.
 		grpc.WithDecompressor(grpc.NewGZIPDecompressor()))
 
-	if prefix, Log := conf.PathPrefix, conf.Log; prefix != "" || Log != nil {
-		/*
-			tracer := conf.Tracer
-			if tracer == nil {
-				tracer = otel.LogTracer(Log, "github.com/UNO-SOFT/grpcer")
-			}
-		*/
-		if Log == nil {
-			Log = func(keyvals ...interface{}) error { return nil }
+	if prefix, Log := conf.PathPrefix, conf.Log; Log != nil {
+		provider, err := otel.LogTraceProvider(Log)
+		if err != nil {
+			return nil, err
 		}
+		providerOpt := gtrace.WithTracerProvider(provider)
 		dialOpts = append(dialOpts,
 			grpc.WithChainStreamInterceptor(
 				func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					Log("method", method)
-					//opts = append(opts, grpc.UseCompressor("gzip"))
 					return streamer(ctx, desc, cc, prefix+method, opts...)
 				},
-				//gtrace.StreamClientInterceptor(tracer),
+				gtrace.StreamClientInterceptor(providerOpt),
 			),
 			grpc.WithChainUnaryInterceptor(
 				func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 					Log("method", method)
-					//opts = append(opts, grpc.UseCompressor("gzip"))
 					return invoker(ctx, prefix+method, req, reply, cc, opts...)
 				},
-				//gtrace.UnaryClientInterceptor(tracer),
+				gtrace.UnaryClientInterceptor(providerOpt),
 			),
 		)
 	}
