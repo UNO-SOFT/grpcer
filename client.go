@@ -1,4 +1,4 @@
-// Copyright 2017, 2020 Tamás Gulácsi
+// Copyright 2017, 2022 Tamás Gulácsi
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -8,14 +8,15 @@ package grpcer
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/UNO-SOFT/otel"
 	"github.com/UNO-SOFT/otel/gtrace"
+	"github.com/go-logr/logr"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Receiver is an interface for Recv()-ing streamed responses from the server.
@@ -35,7 +36,7 @@ type Client interface {
 
 // DialConfig contains the configuration variables.
 type DialConfig struct {
-	Log                            func(keyvals ...interface{}) error
+	logr.Logger
 	PathPrefix                     string
 	CAFile                         string
 	ServerHostOverride             string
@@ -56,8 +57,8 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 		//lint:ignore SA1019 the UseCompressor API is experimental yet.
 		grpc.WithDecompressor(grpc.NewGZIPDecompressor()))
 
-	if prefix, Log := conf.PathPrefix, conf.Log; Log != nil {
-		provider, err := otel.LogTraceProvider(Log)
+	if prefix, logger := conf.PathPrefix, conf.Logger; logger.Enabled() {
+		provider, err := otel.LogTraceProvider(logger)
 		if err != nil {
 			return nil, err
 		}
@@ -66,14 +67,14 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 		dialOpts = append(dialOpts,
 			grpc.WithChainStreamInterceptor(
 				func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-					Log("method", method)
+					logger.Info("chain", "method", method)
 					return streamer(ctx, desc, cc, prefix+method, opts...)
 				},
 				gtrace.StreamClientInterceptor(providerOpt, propOpt),
 			),
 			grpc.WithChainUnaryInterceptor(
 				func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-					Log("method", method)
+					logger.Info("unary", "method", method)
 					return invoker(ctx, prefix+method, req, reply, cc, opts...)
 				},
 				gtrace.UnaryClientInterceptor(providerOpt, propOpt),
@@ -85,11 +86,11 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 			ba := NewInsecureBasicAuth(conf.Username, conf.Password)
 			dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(ba))
 		}
-		return append(dialOpts, grpc.WithInsecure()), nil
+		return append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials())), nil
 	}
 	ba := NewBasicAuth(conf.Username, conf.Password)
 	dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(ba))
-	log.Printf("dialConf=%+v", conf)
+	conf.Info("dial", "config", conf)
 	creds, err := credentials.NewClientTLSFromFile(conf.CAFile, conf.ServerHostOverride)
 	if err != nil {
 		return dialOpts, fmt.Errorf("%q,%q: %w", conf.CAFile, conf.ServerHostOverride, err)
@@ -109,13 +110,7 @@ func Connect(endpoint, CAFile, serverHostOverride string) (*grpc.ClientConn, err
 		PathPrefix:         prefix,
 		CAFile:             CAFile,
 		ServerHostOverride: serverHostOverride,
-		Log: func(keyvals ...interface{}) error {
-			for i := 0; i < len(keyvals); i += 2 {
-				keyvals[i] = fmt.Sprintf("%v=", keyvals[i])
-			}
-			log.Println(keyvals...)
-			return nil
-		},
+		Logger:             logr.Discard(),
 	}
 	opts, err := DialOpts(dc)
 	if err != nil {

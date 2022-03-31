@@ -3,8 +3,8 @@ module github.com/UNO-SOFT/grpcer
 go 1.15
 
 require (
-	github.com/UNO-SOFT/otel v0.1.4
-	github.com/goccy/go-json v0.8.2-0.20211227143828-2d98d47d0f92
+	github.com/UNO-SOFT/otel v0.2.0
+	github.com/go-logr/logr v1.2.3
 	github.com/klauspost/compress v1.13.4
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mitchellh/mapstructure v1.4.1

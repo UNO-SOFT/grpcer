@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	json "github.com/goccy/go-json"
+	json "encoding/json"
 	"github.com/tgulacsi/oracall/custom"
 )
 

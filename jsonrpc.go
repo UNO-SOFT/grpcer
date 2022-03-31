@@ -22,7 +22,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	json "github.com/goccy/go-json"
+	json "encoding/json"
 	"github.com/mitchellh/mapstructure"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

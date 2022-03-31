@@ -14,7 +14,7 @@ import (
 	"reflect"
 	"strings"
 
-	json "github.com/goccy/go-json"
+	json "encoding/json"
 	"github.com/klauspost/compress/zstd"
 )
 

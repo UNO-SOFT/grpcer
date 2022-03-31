@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/goccy/go-json"
+	"encoding/json"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/tgulacsi/go/jsondiff"
 	"github.com/tgulacsi/go/stream"
