@@ -1,4 +1,4 @@
-// Copyright 2017, 2021 Tamás Gulácsi
+// Copyright 2017, 2022 Tamás Gulácsi
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -23,6 +23,8 @@ import (
 	"golang.org/x/time/rate"
 
 	json "encoding/json"
+
+	"github.com/go-logr/logr"
 	"github.com/mitchellh/mapstructure"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -41,7 +43,7 @@ type RequestInfo interface {
 
 type JSONHandler struct {
 	Client
-	Log                  func(...interface{}) error
+	logr.Logger
 	Timeout              time.Duration
 	MergeStreams         bool
 	LaxDecodeRateLimiter *rate.Limiter
@@ -126,13 +128,10 @@ var msDecConf = mapstructure.DecoderConfig{
 }
 
 func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (RequestInfo, interface{}, error) {
-	Log := h.Log
-	if Log == nil {
-		Log = func(...interface{}) error { return nil }
-	}
+	logger := h.getLogger(ctx)
 
 	request := requestInfo{name: path.Base(r.URL.Path)}
-	Log("name", request.name)
+	logger.Info("DecodeRequest", "name", request.name)
 	inp := h.Input(request.name)
 	if inp == nil {
 		return request, nil, fmt.Errorf("no unmarshaler for %q: %w", request.name, ErrNotFound)
@@ -145,12 +144,12 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 
 	buf.Reset()
 	err := json.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp)
-	Log("body", buf.String(), "error", err)
+	logger.Info("decode", "body", buf.String(), "error", err)
 	if err == nil {
 		return request, inp, nil
 	}
 	origErr := fmt.Errorf("%s: %w", buf.String(), err)
-	Log("got", buf.String(), "inp", inp, "error", origErr)
+	logger.Error(origErr, "decode", "got", buf.String(), "inp", inp)
 	if h.LaxDecodeRateLimiter != nil {
 		if err = h.LaxDecodeRateLimiter.Wait(ctx); err != nil {
 			return request, inp, fmt.Errorf("timeout converting: %w (was: %+v)", err, origErr)
@@ -198,12 +197,8 @@ type requestInfo struct {
 func (info requestInfo) Name() string { return info.name }
 
 func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	Log := h.Log
-	if Log == nil {
-		Log = func(...interface{}) error { return nil }
-	}
-
 	ctx := r.Context()
+	logger := h.getLogger(ctx)
 	request, inp, err := h.DecodeRequest(ctx, r)
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
@@ -221,7 +216,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_ = jenc.Encode(inp)
 	{
 		u, p, ok := r.BasicAuth()
-		Log("inp", buf.String(), "username", u)
+		logger.Info("basicAuth", "inp", buf.String(), "username", u)
 		if ok {
 			ctx = WithBasicAuth(ctx, u, p)
 		}
@@ -238,18 +233,18 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	dl, _ := ctx.Deadline()
-	Log("call", name, "deadline", dl)
+	logger.Info("call", "name", name, "deadline", dl)
 
 	recv, err := h.Call(name, ctx, inp)
 	if err != nil {
-		Log("call", name, "error", fmt.Sprintf("%#v", err))
+		logger.Error(err, "call", name)
 		jsonError(w, fmt.Sprintf("Call %s: %s", name, err), statusCodeFromError(err))
 		return
 	}
 
 	part, err := recv.Recv()
 	if err != nil {
-		Log("msg", "recv", "error", err)
+		logger.Error(err, "recv")
 		jsonError(w, fmt.Sprintf("recv: %s", err), statusCodeFromError(err))
 		return
 	}
@@ -259,9 +254,9 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if m := r.URL.Query().Get("merge"); h.MergeStreams && m != "0" || !h.MergeStreams && m == "1" {
 		buf.Reset()
 		_ = jenc.Encode(part)
-		Log("part", limitWidth(buf.Bytes(), MaxLogWidth))
-		if err := mergeStreams(w, part, recv, Log); err != nil {
-			Log("mergeStreams", "error", err)
+		logger.V(1).Info("merge", "part", limitWidth(buf.Bytes(), MaxLogWidth))
+		if err := mergeStreams(w, part, recv, logger); err != nil {
+			logger.Error(err, "mergeStreams")
 		}
 		return
 	}
@@ -270,16 +265,16 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for {
 		buf.Reset()
 		_ = jenc.Encode(part)
-		Log("part", limitWidth(buf.Bytes(), MaxLogWidth))
+		logger.V(1).Info("cycle", "part", limitWidth(buf.Bytes(), MaxLogWidth))
 		if err := enc.Encode(part); err != nil {
-			Log("encode", part, "error", err)
+			logger.Error(err, "encode", part)
 			return
 		}
 
 		part, err = recv.Recv()
 		if err != nil {
 			if err != io.EOF {
-				Log("msg", "recv", "error", err)
+				logger.Error(err, "msg", "recv")
 			}
 			break
 		}
@@ -372,6 +367,13 @@ func SnakeCase(text string) string {
 	},
 		text)
 	return string(b)
+}
+
+func (h JSONHandler) getLogger(ctx context.Context) logr.Logger {
+	if lgr, err := logr.FromContext(ctx); err == nil {
+		return lgr
+	}
+	return h.Logger
 }
 
 // vim: set fileencoding=utf-8 noet:

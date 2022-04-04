@@ -1,4 +1,4 @@
-// Copyright 2017, 2017 Tamás Gulácsi
+// Copyright 2017, 2022 Tamás Gulácsi
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"encoding/json"
+
+	"github.com/go-logr/logr/testr"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/tgulacsi/go/jsondiff"
 	"github.com/tgulacsi/go/stream"
@@ -20,10 +22,6 @@ import (
 func TestMerge(t *testing.T) {
 	buf := bufPool.Get().(*bytes.Buffer)
 	defer bufPool.Put(buf)
-	Log := func(keyvals ...interface{}) error {
-		t.Log(keyvals...)
-		return nil
-	}
 	repComma := strings.NewReplacer(`",`, `",`+"\n")
 	for tN, tC := range map[string]struct {
 		Want  string
@@ -65,7 +63,7 @@ func TestMerge(t *testing.T) {
 		buf.Reset()
 		recv := &receiver{parts: tC.Input}
 		first, _ := recv.Recv()
-		mergeStreams(buf, first, recv, Log)
+		mergeStreams(buf, first, recv, testr.New(t))
 		_ = repComma
 		d, err := jsondiff.DiffStrings(
 			//repComma.Replace(tC.Want),

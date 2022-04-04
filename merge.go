@@ -15,6 +15,8 @@ import (
 	"strings"
 
 	json "encoding/json"
+
+	"github.com/go-logr/logr"
 	"github.com/klauspost/compress/zstd"
 )
 
@@ -23,11 +25,7 @@ var (
 	errWrongType = errors.New("wrong type")
 )
 
-func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interface{}, error) }, Log func(...interface{}) error) error {
-	if Log == nil {
-		Log = func(...interface{}) error { return nil }
-	}
-
+func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interface{}, error) }, logger logr.Logger) error {
 	slice, notSlice := SliceFields(first, "json")
 	if len(slice) == 0 {
 		var err error
@@ -35,19 +33,19 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 		enc := json.NewEncoder(w)
 		for {
 			if err := enc.Encode(part); err != nil {
-				Log("encode", part, "error", err)
+				logger.Error(err, "encode", part)
 				return fmt.Errorf("encode part: %w", err)
 			}
 
 			part, err = recv.Recv()
 			if err != nil {
 				if err != io.EOF {
-					Log("msg", "recv", "error", err)
+					logger.Error(err, "msg", "recv")
 				}
 				break
 			}
 		}
-		Log("slice", len(slice))
+		logger.V(1).Info("slice", "len", len(slice))
 		return nil
 	}
 
@@ -60,7 +58,6 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 	}()
 	jenc := json.NewEncoder(buf)
 
-	//Log("slices", slice)
 	w.Write([]byte("{"))
 	for _, f := range notSlice {
 		buf.Reset()
@@ -89,7 +86,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 	openFile := func(f Field) error {
 		fh, err := NewTempFile("", "merge-"+f.Name+"-*.json.zst")
 		if err != nil {
-			Log("tempFile", f.Name, "error", err)
+			logger.Error(err, "tempFile", f.Name)
 			return fmt.Errorf("%s: %w", f.Name, err)
 		}
 		files[f.Name] = fh
@@ -124,13 +121,13 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 		part, err = recv.Recv()
 		if err != nil {
 			if err != io.EOF {
-				Log("msg", "recv", "error", err)
+				logger.Error(err, "msg", "recv")
 			}
 			break
 		}
 		buf.Reset()
 		jenc.Encode(part)
-		Log("part", limitWidth(buf.Bytes(), 256))
+		logger.V(1).Info("encode", "part", limitWidth(buf.Bytes(), 256))
 
 		S, nS := SliceFields(part, "json")
 		for _, f := range S {
@@ -158,7 +155,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 			break
 		}
 		if err != nil {
-			Log("error", err)
+			logger.Error(err, "error")
 			//TODO(tgulacsi): close the merge and send as is
 			return err
 		}
@@ -173,9 +170,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 		for _, f := range S {
 			fh := files[f.Name]
 			if _, err := fh.Write([]byte{','}); err != nil {
-				if Log != nil {
-					Log("msg", "write", "error", err)
-				}
+				logger.Error(err, "write")
 			}
 			buf.Reset()
 			jenc.Encode(f.Value)
@@ -187,7 +182,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 	for nm, fh := range files {
 		rc, err := fh.GetReader()
 		if err != nil {
-			Log("msg", "GetReader", "name", nm, "error", err)
+			logger.Error(err, "msg", "GetReader", "name", nm)
 			continue
 		}
 		w.Write([]byte{','})
