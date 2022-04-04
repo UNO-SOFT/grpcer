@@ -128,7 +128,7 @@ var msDecConf = mapstructure.DecoderConfig{
 }
 
 func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (RequestInfo, interface{}, error) {
-	logger := h.getLogger(ctx)
+	logger := getLogger(ctx, h.Logger)
 
 	request := requestInfo{name: path.Base(r.URL.Path)}
 	logger.Info("DecodeRequest", "name", request.name)
@@ -198,7 +198,7 @@ func (info requestInfo) Name() string { return info.name }
 
 func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	logger := h.getLogger(ctx)
+	logger := getLogger(ctx, h.Logger)
 	request, inp, err := h.DecodeRequest(ctx, r)
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
@@ -367,13 +367,6 @@ func SnakeCase(text string) string {
 	},
 		text)
 	return string(b)
-}
-
-func (h JSONHandler) getLogger(ctx context.Context) logr.Logger {
-	if lgr, err := logr.FromContext(ctx); err == nil {
-		return lgr
-	}
-	return h.Logger
 }
 
 // vim: set fileencoding=utf-8 noet:

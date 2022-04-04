@@ -1,4 +1,4 @@
-// Copyright 2017 Tamás Gulácsi
+// Copyright 2017, 2022 Tamás Gulácsi
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -13,23 +13,21 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/go-logr/logr"
 	"github.com/mitchellh/mapstructure"
 	"github.com/tgulacsi/go-xmlrpc"
 )
 
 type XMLRPCHandler struct {
 	Client
-	Log     func(...interface{}) error
+	logr.Logger
 	Timeout time.Duration
 }
 
 func (h XMLRPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	Log := h.Log
-	if Log == nil {
-		Log = func(...interface{}) error { return nil }
-	}
+	logger := getLogger(r.Context(), h.Logger)
 	name, params, err := xmlrpc.Unmarshal(r.Body)
-	Log("name", name, "params", params, "error", err)
+	logger.Info("unmarshal", "name", name, "params", params, "error", err)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("ERROR unmarshaling: %v", err), http.StatusBadRequest)
 		return
@@ -65,7 +63,7 @@ func (h XMLRPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	Log("inp", inp)
+	logger.Info("decoded", "inp", inp)
 
 	ctx := r.Context()
 	if u, p, ok := r.BasicAuth(); ok {
@@ -97,7 +95,7 @@ func (h XMLRPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		parts = append(parts, part)
 		if part, err = recv.Recv(); err != nil {
 			if err != io.EOF {
-				Log("msg", "recv", "error", err)
+				logger.Error(err, "recv")
 				parts = parts[:1]
 				parts[0] = xmlrpc.Fault{Code: 111, Message: err.Error()}
 			}
@@ -113,8 +111,15 @@ func (h XMLRPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err = xmlrpc.Marshal(w, "", parts)
 	}
 	if err != nil {
-		Log("msg", "marshal", "error", err)
+		logger.Error(err, "marshal")
 	}
+}
+
+func getLogger(ctx context.Context, logger logr.Logger) logr.Logger {
+	if lgr, err := logr.FromContext(ctx); err == nil {
+		return lgr
+	}
+	return logger
 }
 
 // vim: set fileencoding=utf-8 noet:
