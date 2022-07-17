@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
@@ -265,7 +264,7 @@ type TempFile struct {
 
 // NewTempFile creates a new compressed tempfile, that can be read back.
 func NewTempFile(dir, name string) (*TempFile, error) {
-	fh, err := ioutil.TempFile(dir, name)
+	fh, err := os.CreateTemp(dir, name)
 	if err != nil {
 		return nil, err
 	}
