@@ -26,7 +26,7 @@ type XMLRPCHandler struct {
 }
 
 func (h XMLRPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	gzhttp.GzipHandler(http.HandlerFunc(h.serveHTTP))
+	gzhttp.GzipHandler(http.HandlerFunc(h.serveHTTP)).ServeHTTP(w, r)
 }
 func (h XMLRPCHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	logger := getLogger(r.Context(), h.Logger)

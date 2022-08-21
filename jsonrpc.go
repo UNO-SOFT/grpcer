@@ -197,7 +197,7 @@ type requestInfo struct {
 func (info requestInfo) Name() string { return info.name }
 
 func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	gzhttp.GzipHandler(http.HandlerFunc(h.serveHTTP))
+	gzhttp.GzipHandler(http.HandlerFunc(h.serveHTTP)).ServeHTTP(w, r)
 }
 func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
