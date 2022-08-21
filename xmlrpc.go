@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/go-logr/logr"
+	"github.com/klauspost/compress/gzhttp"
 	"github.com/mitchellh/mapstructure"
 	"github.com/tgulacsi/go-xmlrpc"
 )
@@ -25,6 +26,9 @@ type XMLRPCHandler struct {
 }
 
 func (h XMLRPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	gzhttp.GzipHandler(http.HandlerFunc(h.serveHTTP))
+}
+func (h XMLRPCHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	logger := getLogger(r.Context(), h.Logger)
 	name, params, err := xmlrpc.Unmarshal(r.Body)
 	logger.Info("unmarshal", "name", name, "params", params, "error", err)

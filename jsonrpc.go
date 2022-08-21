@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -22,9 +23,8 @@ import (
 
 	"golang.org/x/time/rate"
 
-	json "encoding/json"
-
 	"github.com/go-logr/logr"
+	"github.com/klauspost/compress/gzhttp"
 	"github.com/mitchellh/mapstructure"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -197,6 +197,9 @@ type requestInfo struct {
 func (info requestInfo) Name() string { return info.name }
 
 func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	gzhttp.GzipHandler(http.HandlerFunc(h.serveHTTP))
+}
+func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := getLogger(ctx, h.Logger)
 	request, inp, err := h.DecodeRequest(ctx, r)
