@@ -5,6 +5,7 @@
 // protoc-gen-grpc generates a grpcer.Client from the given protoc file.
 package main
 
+// nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template
 import (
 	"io"
 	"path/filepath"

@@ -61,11 +61,13 @@ func jsonError(w http.ResponseWriter, errMsg string, code int) {
 	json.NewEncoder(w).Encode(e)
 }
 
+const debugDecodeHook = false
+
 var msDecConf = mapstructure.DecoderConfig{
 	Squash:           true,
 	WeaklyTypedInput: true,
 	DecodeHook: func(f reflect.Type, t reflect.Type, data interface{}) (res interface{}, err error) {
-		if false {
+		if debugDecodeHook {
 			fmt.Printf("\nf:%+v t:%+v data:%#v\n\n", f, t, data)
 			defer func() {
 				fmt.Printf("res=%#v err=%+v\n", res, err)

@@ -155,6 +155,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 		}
 		if err != nil {
 			logger.Error(err, "error")
+			// nosemgrep: dgryski.semgrep-go.errtodo.err-todo
 			//TODO(tgulacsi): close the merge and send as is
 			return err
 		}
