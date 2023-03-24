@@ -43,10 +43,10 @@ type RequestInfo interface {
 
 type JSONHandler struct {
 	Client
-	logr.Logger
-	Timeout              time.Duration
-	MergeStreams         bool
 	LaxDecodeRateLimiter *rate.Limiter
+	logr.Logger
+	Timeout      time.Duration
+	MergeStreams bool
 }
 
 func jsonError(w http.ResponseWriter, errMsg string, code int) {
