@@ -13,7 +13,7 @@ import (
 
 	"encoding/json"
 
-	"github.com/go-logr/logr/testr"
+	"github.com/UNO-SOFT/zlog/v2"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/tgulacsi/go/jsondiff"
 	"github.com/tgulacsi/go/stream"
@@ -63,7 +63,7 @@ func TestMerge(t *testing.T) {
 		buf.Reset()
 		recv := &receiver{parts: tC.Input}
 		first, _ := recv.Recv()
-		mergeStreams(buf, first, recv, testr.New(t))
+		mergeStreams(buf, first, recv, zlog.NewT(t).SLog())
 		_ = repComma
 		d, err := jsondiff.DiffStrings(
 			//repComma.Replace(tC.Want),

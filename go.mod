@@ -4,11 +4,11 @@ go 1.19
 
 require (
 	github.com/UNO-SOFT/otel v0.5.0
-	github.com/go-logr/logr v1.2.4
+	github.com/UNO-SOFT/zlog v0.6.0
 	github.com/klauspost/compress v1.16.5
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/tgulacsi/go v0.15.1
+	github.com/tgulacsi/go v0.24.3
 	github.com/tgulacsi/go-xmlrpc v0.2.2
 	github.com/tgulacsi/oracall v0.19.0
 	golang.org/x/exp v0.0.0-20230420155640-133eef4313cb
@@ -19,6 +19,7 @@ require (
 
 require (
 	github.com/go-logfmt/logfmt v0.5.0 // indirect
+	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/godror/godror v0.24.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
@@ -34,6 +35,7 @@ require (
 	golang.org/x/oauth2 v0.5.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
+	golang.org/x/term v0.7.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect

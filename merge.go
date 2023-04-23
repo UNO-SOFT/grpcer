@@ -15,8 +15,8 @@ import (
 
 	json "encoding/json"
 
-	"github.com/go-logr/logr"
 	"github.com/klauspost/compress/zstd"
+	"golang.org/x/exp/slog"
 )
 
 var (
@@ -24,7 +24,7 @@ var (
 	errWrongType = errors.New("wrong type")
 )
 
-func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interface{}, error) }, logger logr.Logger) error {
+func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interface{}, error) }, logger *slog.Logger) error {
 	slice, notSlice := SliceFields(first, "json")
 	if len(slice) == 0 {
 		var err error
@@ -32,19 +32,19 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 		enc := json.NewEncoder(w)
 		for {
 			if err := enc.Encode(part); err != nil {
-				logger.Error(err, "encode", part)
+				logger.Error("encode", part, "error", err)
 				return fmt.Errorf("encode part: %w", err)
 			}
 
 			part, err = recv.Recv()
 			if err != nil {
 				if err != io.EOF {
-					logger.Error(err, "msg", "recv")
+					logger.Error("msg", "recv", "error", err)
 				}
 				break
 			}
 		}
-		logger.V(1).Info("slice", "len", len(slice))
+		logger.Debug("slice", "len", len(slice))
 		return nil
 	}
 
@@ -85,7 +85,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 	openFile := func(f Field) error {
 		fh, err := NewTempFile("", "merge-"+f.Name+"-*.json.zst")
 		if err != nil {
-			logger.Error(err, "tempFile", f.Name)
+			logger.Error("tempFile", f.Name, "error", err)
 			return fmt.Errorf("%s: %w", f.Name, err)
 		}
 		files[f.Name] = fh
@@ -120,13 +120,13 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 		part, err = recv.Recv()
 		if err != nil {
 			if err != io.EOF {
-				logger.Error(err, "msg", "recv")
+				logger.Error("msg", "recv", "error", err)
 			}
 			break
 		}
 		buf.Reset()
 		jenc.Encode(part)
-		logger.V(1).Info("encode", "part", limitWidth(buf.Bytes(), 256))
+		logger.Debug("encode", "part", limitWidth(buf.Bytes(), 256))
 
 		S, nS := SliceFields(part, "json")
 		for _, f := range S {
@@ -154,7 +154,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 			break
 		}
 		if err != nil {
-			logger.Error(err, "error")
+			logger.Error("error", "error", err)
 			// nosemgrep: dgryski.semgrep-go.errtodo.err-todo
 			//TODO(tgulacsi): close the merge and send as is
 			return err
@@ -170,7 +170,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 		for _, f := range S {
 			fh := files[f.Name]
 			if _, err := fh.Write([]byte{','}); err != nil {
-				logger.Error(err, "write")
+				logger.Error("write", "error", err)
 			}
 			buf.Reset()
 			jenc.Encode(f.Value)
@@ -182,7 +182,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 	for nm, fh := range files {
 		rc, err := fh.GetReader()
 		if err != nil {
-			logger.Error(err, "msg", "GetReader", "name", nm)
+			logger.Error("msg", "GetReader", "name", nm, "error", err)
 			continue
 		}
 		w.Write([]byte{','})

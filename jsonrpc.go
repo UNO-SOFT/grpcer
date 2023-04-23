@@ -21,9 +21,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"golang.org/x/exp/slog"
 	"golang.org/x/time/rate"
 
-	"github.com/go-logr/logr"
 	"github.com/klauspost/compress/gzhttp"
 	"github.com/mitchellh/mapstructure"
 	"google.golang.org/grpc/codes"
@@ -44,7 +44,7 @@ type RequestInfo interface {
 type JSONHandler struct {
 	Client               `json:"-"`
 	LaxDecodeRateLimiter *rate.Limiter
-	logr.Logger          `json:"-"`
+	*slog.Logger         `json:"-"`
 	Timeout              time.Duration
 	MergeStreams         bool
 }
@@ -130,7 +130,7 @@ var msDecConf = mapstructure.DecoderConfig{
 }
 
 func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (RequestInfo, interface{}, error) {
-	logger := getLogger(ctx, h.Logger)
+	logger := h.Logger
 
 	request := requestInfo{name: path.Base(r.URL.Path)}
 	logger.Info("DecodeRequest", "name", request.name)
@@ -151,7 +151,7 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 		return request, inp, nil
 	}
 	origErr := fmt.Errorf("%s: %w", buf.String(), err)
-	logger.Error(origErr, "decode", "got", buf.String(), "inp", inp)
+	logger.Error("decode", "got", buf.String(), "inp", inp, "error", origErr)
 	if h.LaxDecodeRateLimiter != nil {
 		if err = h.LaxDecodeRateLimiter.Wait(ctx); err != nil {
 			return request, inp, fmt.Errorf("timeout converting: %w (was: %+v)", err, origErr)
@@ -203,7 +203,7 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	logger := getLogger(ctx, h.Logger)
+	logger := h.Logger
 	request, inp, err := h.DecodeRequest(ctx, r)
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
@@ -242,14 +242,14 @@ func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 	recv, err := h.Call(name, ctx, inp)
 	if err != nil {
-		logger.Error(err, "call", name)
+		logger.Error("call", name, "error", err)
 		jsonError(w, fmt.Sprintf("Call %s: %s", name, err), statusCodeFromError(err))
 		return
 	}
 
 	part, err := recv.Recv()
 	if err != nil {
-		logger.Error(err, "recv")
+		logger.Error("recv", "error", err)
 		jsonError(w, fmt.Sprintf("recv: %s", err), statusCodeFromError(err))
 		return
 	}
@@ -259,9 +259,9 @@ func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	if m := r.URL.Query().Get("merge"); h.MergeStreams && m != "0" || !h.MergeStreams && m == "1" {
 		buf.Reset()
 		_ = jenc.Encode(part)
-		logger.V(1).Info("merge", "part", limitWidth(buf.Bytes(), MaxLogWidth))
+		logger.Debug("merge", "part", limitWidth(buf.Bytes(), MaxLogWidth))
 		if err := mergeStreams(w, part, recv, logger); err != nil {
-			logger.Error(err, "mergeStreams")
+			logger.Error("mergeStreams", "error", err)
 		}
 		return
 	}
@@ -270,16 +270,16 @@ func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	for {
 		buf.Reset()
 		_ = jenc.Encode(part)
-		logger.V(1).Info("cycle", "part", limitWidth(buf.Bytes(), MaxLogWidth))
+		logger.Debug("cycle", "part", limitWidth(buf.Bytes(), MaxLogWidth))
 		if err := enc.Encode(part); err != nil {
-			logger.Error(err, "encode", part)
+			logger.Error("encode", part, "error", err)
 			return
 		}
 
 		part, err = recv.Recv()
 		if err != nil {
 			if err != io.EOF {
-				logger.Error(err, "msg", "recv")
+				logger.Error("msg", "recv", "error", err)
 			}
 			break
 		}

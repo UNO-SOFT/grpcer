@@ -13,7 +13,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/go-logr/logr"
+	"golang.org/x/exp/slog"
+
 	"github.com/klauspost/compress/gzhttp"
 	"github.com/mitchellh/mapstructure"
 	"github.com/tgulacsi/go-xmlrpc"
@@ -21,7 +22,7 @@ import (
 
 type XMLRPCHandler struct {
 	Client
-	logr.Logger
+	*slog.Logger
 	Timeout time.Duration
 }
 
@@ -29,7 +30,7 @@ func (h XMLRPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	gzhttp.GzipHandler(http.HandlerFunc(h.serveHTTP)).ServeHTTP(w, r)
 }
 func (h XMLRPCHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
-	logger := getLogger(r.Context(), h.Logger)
+	logger := h.Logger
 	name, params, err := xmlrpc.Unmarshal(r.Body)
 	logger.Info("unmarshal", "name", name, "params", params, "error", err)
 	if err != nil {
@@ -99,7 +100,7 @@ func (h XMLRPCHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		parts = append(parts, part)
 		if part, err = recv.Recv(); err != nil {
 			if err != io.EOF {
-				logger.Error(err, "recv")
+				logger.Error("recv", "error", err)
 				parts = parts[:1]
 				parts[0] = xmlrpc.Fault{Code: 111, Message: err.Error()}
 			}
@@ -115,15 +116,8 @@ func (h XMLRPCHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		err = xmlrpc.Marshal(w, "", parts)
 	}
 	if err != nil {
-		logger.Error(err, "marshal")
+		logger.Error("marshal", "error", err)
 	}
-}
-
-func getLogger(ctx context.Context, logger logr.Logger) logr.Logger {
-	if lgr, err := logr.FromContext(ctx); err == nil {
-		return lgr
-	}
-	return logger
 }
 
 // vim: set fileencoding=utf-8 noet:
