@@ -12,7 +12,8 @@ import (
 
 	"github.com/UNO-SOFT/otel"
 	"github.com/UNO-SOFT/otel/gtrace"
-	"github.com/go-logr/logr"
+
+	"golang.org/x/exp/slog"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -36,7 +37,7 @@ type Client interface {
 
 // DialConfig contains the configuration variables.
 type DialConfig struct {
-	logr.Logger
+	*slog.Logger
 	PathPrefix                     string
 	CAFile                         string
 	ServerHostOverride             string
@@ -57,8 +58,8 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 		//lint:ignore SA1019 the UseCompressor API is experimental yet.
 		grpc.WithDecompressor(grpc.NewGZIPDecompressor()))
 
-	if prefix, logger := conf.PathPrefix, conf.Logger; logger.Enabled() {
-		provider, err := otel.LogTraceProvider(logger)
+	if prefix, logger := conf.PathPrefix, conf.Logger; logger.Enabled(nil, slog.LevelInfo) {
+		provider, err := otel.LogTraceProvider(slog.NewLogLogger(logger.Handler(), slog.LevelInfo))
 		if err != nil {
 			return nil, err
 		}
@@ -110,7 +111,6 @@ func Connect(endpoint, CAFile, serverHostOverride string) (*grpc.ClientConn, err
 		PathPrefix:         prefix,
 		CAFile:             CAFile,
 		ServerHostOverride: serverHostOverride,
-		Logger:             logr.Discard(),
 	}
 	opts, err := DialOpts(dc)
 	if err != nil {
