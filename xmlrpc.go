@@ -13,7 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"golang.org/x/exp/slog"
+	"log/slog"
 
 	"github.com/klauspost/compress/gzhttp"
 	"github.com/mitchellh/mapstructure"

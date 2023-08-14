@@ -16,7 +16,7 @@ import (
 	json "encoding/json"
 
 	"github.com/klauspost/compress/zstd"
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 var (

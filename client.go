@@ -13,7 +13,7 @@ import (
 	"github.com/UNO-SOFT/otel"
 	"github.com/UNO-SOFT/otel/gtrace"
 
-	"golang.org/x/exp/slog"
+	"log/slog"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -58,7 +58,7 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 		//lint:ignore SA1019 the UseCompressor API is experimental yet.
 		grpc.WithDecompressor(grpc.NewGZIPDecompressor()))
 
-	if prefix, logger := conf.PathPrefix, conf.Logger; logger.Enabled(nil, slog.LevelInfo) {
+	if prefix, logger := conf.PathPrefix, conf.Logger; logger.Enabled(context.Background(), slog.LevelInfo) {
 		provider, err := otel.LogTraceProvider(slog.NewLogLogger(logger.Handler(), slog.LevelInfo))
 		if err != nil {
 			return nil, err
