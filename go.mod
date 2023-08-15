@@ -6,7 +6,7 @@ toolchain go1.21.0
 
 require (
 	github.com/UNO-SOFT/otel v0.5.1
-	github.com/UNO-SOFT/zlog v0.7.3
+	github.com/UNO-SOFT/zlog v0.7.4
 	github.com/klauspost/compress v1.16.7
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -23,8 +23,12 @@ require (
 	github.com/go-logfmt/logfmt v0.5.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-logr/zerologr v1.2.3 // indirect
 	github.com/godror/godror v0.24.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
+	github.com/rs/zerolog v1.29.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.42.0 // indirect
 	go.opentelemetry.io/otel v1.16.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v0.39.0 // indirect
