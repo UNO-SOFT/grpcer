@@ -6,7 +6,7 @@ toolchain go1.21.0
 
 require (
 	github.com/UNO-SOFT/otel v0.5.1
-	github.com/UNO-SOFT/zlog v0.7.4
+	github.com/UNO-SOFT/zlog v0.7.6
 	github.com/klauspost/compress v1.16.7
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
