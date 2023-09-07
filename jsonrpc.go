@@ -21,8 +21,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"log/slog"
 	"golang.org/x/time/rate"
+	"log/slog"
 
 	"github.com/klauspost/compress/gzhttp"
 	"github.com/mitchellh/mapstructure"
@@ -151,7 +151,6 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 		return request, inp, nil
 	}
 	origErr := fmt.Errorf("%s: %w", buf.String(), err)
-	logger.Error("decode", "got", buf.String(), "inp", inp, "error", origErr)
 	if h.LaxDecodeRateLimiter != nil {
 		if err = h.LaxDecodeRateLimiter.Wait(ctx); err != nil {
 			return request, inp, fmt.Errorf("timeout converting: %w (was: %+v)", err, origErr)
