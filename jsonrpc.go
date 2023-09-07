@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"path"
 	"reflect"
@@ -20,9 +21,6 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
-
-	"golang.org/x/time/rate"
-	"log/slog"
 
 	"github.com/klauspost/compress/gzhttp"
 	"github.com/mitchellh/mapstructure"
@@ -42,11 +40,10 @@ type RequestInfo interface {
 }
 
 type JSONHandler struct {
-	Client               `json:"-"`
-	LaxDecodeRateLimiter *rate.Limiter
-	*slog.Logger         `json:"-"`
-	Timeout              time.Duration
-	MergeStreams         bool
+	Client       `json:"-"`
+	*slog.Logger `json:"-"`
+	Timeout      time.Duration
+	MergeStreams bool
 }
 
 func jsonError(w http.ResponseWriter, errMsg string, code int) {
@@ -151,11 +148,6 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 		return request, inp, nil
 	}
 	origErr := fmt.Errorf("%s: %w", buf.String(), err)
-	if h.LaxDecodeRateLimiter != nil {
-		if err = h.LaxDecodeRateLimiter.Wait(ctx); err != nil {
-			return request, inp, fmt.Errorf("timeout converting: %w (was: %+v)", err, origErr)
-		}
-	}
 	m := mapPool.Get().(map[string]interface{})
 	defer func() {
 		for k := range m {
