@@ -42,6 +42,7 @@ type DialConfig struct {
 	CAFile                         string
 	ServerHostOverride             string
 	Username, Password             string
+	ServiceName, ServiceVersion    string
 	AllowInsecurePasswordTransport bool
 }
 
@@ -59,24 +60,32 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 		grpc.WithDecompressor(grpc.NewGZIPDecompressor()))
 
 	if prefix, logger := conf.PathPrefix, conf.Logger; logger.Enabled(context.Background(), slog.LevelInfo) {
-		provider, err := otel.LogTraceProvider(slog.NewLogLogger(logger.Handler(), slog.LevelInfo))
+		serviceName, serviceVersion := conf.ServiceName, conf.ServiceVersion
+		if serviceName == "" {
+			serviceName = conf.Username + "@" + conf.ServerHostOverride + conf.PathPrefix
+		}
+		tp, _, _, err := otel.LogTraceProvider(
+			slog.NewLogLogger(logger.Handler(), slog.LevelInfo),
+			serviceName, serviceVersion,
+		)
 		if err != nil {
 			return nil, err
 		}
-		providerOpt := gtrace.WithTracerProvider(provider)
+		providerOpt := gtrace.WithTracerProvider(tp)
 		propOpt := gtrace.WithPropagators(otel.HTTPPropagators)
+		gzipOpt := grpc.UseCompressor("gzip")
 		dialOpts = append(dialOpts,
 			grpc.WithChainStreamInterceptor(
 				func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					logger.Info("chain", "method", method)
-					return streamer(ctx, desc, cc, prefix+method, opts...)
+					return streamer(ctx, desc, cc, prefix+method, append(opts, gzipOpt)...)
 				},
 				gtrace.StreamClientInterceptor(providerOpt, propOpt),
 			),
 			grpc.WithChainUnaryInterceptor(
 				func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 					logger.Info("unary", "method", method)
-					return invoker(ctx, prefix+method, req, reply, cc, opts...)
+					return invoker(ctx, prefix+method, req, reply, cc, append(opts, gzipOpt)...)
 				},
 				gtrace.UnaryClientInterceptor(providerOpt, propOpt),
 			),
