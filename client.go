@@ -8,16 +8,16 @@ package grpcer
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/UNO-SOFT/otel"
 	"github.com/UNO-SOFT/otel/gtrace"
 
-	"log/slog"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	_ "google.golang.org/grpc/encoding/gzip"
 )
 
 // Receiver is an interface for Recv()-ing streamed responses from the server.
@@ -53,11 +53,6 @@ type DialConfig struct {
 // * serverHostOverride is to override the CA's host.
 func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 	dialOpts := make([]grpc.DialOption, 0, 6)
-	dialOpts = append(dialOpts,
-		//lint:ignore SA1019 the UseCompressor API is experimental yet.
-		grpc.WithCompressor(grpc.NewGZIPCompressor()),
-		//lint:ignore SA1019 the UseCompressor API is experimental yet.
-		grpc.WithDecompressor(grpc.NewGZIPDecompressor()))
 
 	if prefix, logger := conf.PathPrefix, conf.Logger; logger.Enabled(context.Background(), slog.LevelInfo) {
 		serviceName, serviceVersion := conf.ServiceName, conf.ServiceVersion
