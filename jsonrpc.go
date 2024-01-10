@@ -24,6 +24,8 @@ import (
 
 	"github.com/klauspost/compress/gzhttp"
 	"github.com/mitchellh/mapstructure"
+	"github.com/tgulacsi/go/iohlp"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -135,19 +137,17 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 	if inp == nil {
 		return request, nil, fmt.Errorf("no unmarshaler for %q: %w", request.name, ErrNotFound)
 	}
-	buf := bufPool.Get().(*bytes.Buffer)
-	defer func() {
-		buf.Reset()
-		bufPool.Put(buf)
-	}()
+	sr, err := iohlp.MakeSectionReader(r.Body, 1<<20)
+	if err != nil {
+		return request, nil, err
+	}
 
-	buf.Reset()
-	err := json.NewDecoder(io.TeeReader(r.Body, buf)).Decode(inp)
-	logger.Info("decode", "body", buf.String(), "error", err)
-	if err == nil {
+	if err = json.NewDecoder(io.NewSectionReader(sr, 0, sr.Size())).Decode(inp); err == nil {
 		return request, inp, nil
 	}
-	origErr := fmt.Errorf("%s: %w", buf.String(), err)
+	logger.Error("decode", "body", sr.Read, "error", err)
+	b, _ := ReadHeadTail(io.NewSectionReader(sr, 0, sr.Size()), 1024)
+	origErr := fmt.Errorf("%s: %w", string(b), err)
 	m := mapPool.Get().(map[string]interface{})
 	defer func() {
 		for k := range m {
@@ -155,12 +155,9 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 		}
 		mapPool.Put(m)
 	}()
-	if err = json.NewDecoder(
-		io.MultiReader(bytes.NewReader(buf.Bytes()), r.Body),
-	).Decode(&m); err != nil {
-		return request, nil, fmt.Errorf("decode %s: %w (was: %+v)", buf.String(), err, origErr)
+	if err = json.NewDecoder(sr).Decode(&m); err != nil {
+		return request, nil, fmt.Errorf("decode %s: %w (was: %+v)", string(b), err, origErr)
 	}
-	buf.Reset()
 
 	// mapstruct
 	for k, v := range m {
@@ -193,6 +190,9 @@ func (h JSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	gzhttp.GzipHandler(http.HandlerFunc(h.serveHTTP)).ServeHTTP(w, r)
 }
 func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
+	if r != nil && r.Body != nil {
+		defer r.Body.Close()
+	}
 	ctx := r.Context()
 	logger := h.Logger
 	request, inp, err := h.DecodeRequest(ctx, r)
@@ -200,6 +200,7 @@ func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	r.Body.Close()
 	name := request.Name()
 
 	buf := bufPool.Get().(*bytes.Buffer)
@@ -363,6 +364,19 @@ func SnakeCase(text string) string {
 	},
 		text)
 	return string(b)
+}
+
+func ReadHeadTail(sr *io.SectionReader, maxSize int64) ([]byte, error) {
+	size := sr.Size()
+	if size <= maxSize {
+		p := make([]byte, int(size))
+		_, err := sr.ReadAt(p, 0)
+		return p, err
+	}
+	p := make([]byte, int(maxSize))
+	_, firstErr := sr.ReadAt(p[:len(p)/2], 0)
+	_, secondErr := sr.ReadAt(p[len(p)/2:], size-int64(len(p)/2))
+	return p, errors.Join(firstErr, secondErr)
 }
 
 // vim: set fileencoding=utf-8 noet:
