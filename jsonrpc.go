@@ -203,17 +203,12 @@ func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 	name := request.Name()
 
-	buf := bufPool.Get().(*bytes.Buffer)
-	defer func() {
-		buf.Reset()
-		bufPool.Put(buf)
-	}()
-	buf.Reset()
-	jenc := json.NewEncoder(buf)
-	_ = jenc.Encode(inp)
+	ht := iohlp.HeadTailKeeper{Limit: MaxLogWidth / 2}
+	jenc := json.NewEncoder(&ht)
 	{
+		_ = jenc.Encode(inp)
 		u, p, ok := r.BasicAuth()
-		logger.Info("basicAuth", "inp", buf.String(), "username", u)
+		logger.Info("basicAuth", "inp", ht.String(), "username", u)
 		if ok {
 			ctx = WithBasicAuth(ctx, u, p)
 		}
@@ -249,9 +244,9 @@ func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 
 	if m := r.URL.Query().Get("merge"); h.MergeStreams && m != "0" || !h.MergeStreams && m == "1" {
-		buf.Reset()
+		ht.Reset()
 		_ = jenc.Encode(part)
-		logger.Debug("merge", "part", limitWidth(buf.Bytes(), MaxLogWidth))
+		logger.Debug("merge", "part", ht.String())
 		if err := mergeStreams(w, part, recv, logger); err != nil {
 			logger.Error("mergeStreams", "error", err)
 		}
@@ -260,9 +255,9 @@ func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 	enc := json.NewEncoder(w)
 	for {
-		buf.Reset()
+		ht.Reset()
 		_ = jenc.Encode(part)
-		logger.Debug("cycle", "part", limitWidth(buf.Bytes(), MaxLogWidth))
+		logger.Debug("cycle", "part", ht.String())
 		if err := enc.Encode(part); err != nil {
 			logger.Error("encode", part, "error", err)
 			return

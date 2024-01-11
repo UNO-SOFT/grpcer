@@ -10,7 +10,7 @@ require (
 	github.com/klauspost/compress v1.17.4
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/tgulacsi/go v0.27.2
+	github.com/tgulacsi/go v0.27.3
 	github.com/tgulacsi/go-xmlrpc v0.2.2
 	github.com/tgulacsi/oracall v0.19.0
 	google.golang.org/grpc v1.60.1
