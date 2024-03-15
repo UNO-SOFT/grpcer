@@ -1,0 +1,112 @@
+{% package main %}
+
+{% import "time" %}
+{% import "google.golang.org/protobuf/types/descriptorpb" %}
+
+{% func XGo(svc *descriptorpb.ServiceDescriptorProto, info FileInfo) %}
+// Generated with protoc-gen-grpcer
+//	from {%q= info.ProtoFile %}
+//	at   {%s= time.Now().String() %}
+//
+// DO NOT EDIT!
+
+package {%s= info.Package %}
+
+import (
+	"context"
+	"fmt"
+	"io"
+
+	grpc "google.golang.org/grpc"
+	grpcer "github.com/UNO-SOFT/grpcer"
+
+	pb {%q= info.Import %}
+	{% for _, dep := range info.Dependencies %}{%q= dep %}
+	{% endfor %}
+)
+
+type client struct {
+	pb.{%s= svc.GetName() %}Client
+	m map[string]inputAndCall
+}
+
+func (c client) List() []string {
+	names := make([]string, 0, len(c.m))
+	for k := range c.m {
+		names = append(names, k)
+	}
+	return names
+}
+
+func (c client) Input(name string) interface{} {
+	iac := c.m[name]
+	if iac.Input == nil {
+		return nil
+	}
+	return iac.Input()
+}
+
+func (c client) Call(name string, ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
+	iac := c.m[name]
+	if iac.Call == nil {
+		return nil, fmt.Errorf("name %q not found", name)
+	}
+	return iac.Call(ctx, in, opts...)
+}
+
+func (c client) Tags(name string) []string { return c.m[name].Tags }
+
+func NewClient(cc *grpc.ClientConn) grpcer.Client {
+	c := pb.New{%s= svc.GetName() %}Client(cc)
+	return client{
+		{%s= svc.GetName() %}Client: c,
+		m: map[string]inputAndCall{
+		{% for _, m := range svc.GetMethod() %}{%q= m.GetName() %}: inputAndCall{
+			Input: func() interface{} { return new({%s= changePkgTo(info.Import, "pb", trimLeftDot(m.GetInputType())) %}) },
+			Call: func(ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
+				input := in.(*{%s= changePkgTo(info.Import, "pb", trimLeftDot(m.GetInputType())) %})
+				res, err := c.{%s= m.GetName() %}(ctx, input, opts...)
+				if err != nil {
+					return &onceRecv{Out:res}, err
+				}
+				{% if m.GetServerStreaming()
+				%} return multiRecv(func() (interface{}, error) { return res.Recv() }), nil
+				{% else 
+				%} return &onceRecv{Out:res}, err
+				{% endif %}
+			},
+			{% if tags := getTags(m); len(tags) != 0
+			%}Tags: []string{ {% for i, t := range tags %}{% if i != 0 %}, {% endif 
+			%}{%q= t %}{% endfor %} },{% endif %}
+		},
+		{% endfor %}
+		},
+	}
+}
+
+type inputAndCall struct {
+	Input func() interface{}
+	Call func(ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error)
+	Tags []string
+}
+
+type onceRecv struct {
+	Out interface{}
+	done bool
+}
+func (o *onceRecv) Recv() (interface{}, error) {
+	if o.done {
+		return nil, io.EOF
+	}
+	out := o.Out
+	o.done, o.Out = true, nil
+	return out, nil
+}
+
+type multiRecv func() (interface{}, error)
+func (m multiRecv) Recv() (interface{}, error) {
+	return m()
+}
+
+var _ = multiRecv(nil) // against "unused"
+{% endfunc %}

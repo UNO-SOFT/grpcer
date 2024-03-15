@@ -10,12 +10,13 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
-	"text/template"
-	"time"
 
+	"github.com/valyala/quicktemplate"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
+
+//go:generate qtc
 
 var opts protogen.Options
 
@@ -83,144 +84,44 @@ func Main(p *protogen.Plugin) error {
 
 	return nil
 }
-
-var goTmpl = template.Must(template.
-	New("go").
-	Funcs(template.FuncMap{
-		"trimLeft":    strings.TrimLeft,
-		"trimLeftDot": func(s string) string { return strings.TrimLeft(s, ".") },
-		"base": func(s string) string {
-			if i := strings.LastIndexByte(s, '.'); i >= 0 {
-				return s[i+1:]
-			}
-			return s
-		},
-		"now": func(patterns ...string) string {
-			pattern := time.RFC3339
-			if len(patterns) > 0 {
-				pattern = patterns[0]
-			}
-			return time.Now().Format(pattern)
-		},
-		"changePkgTo": func(from, to, what string) string {
-			if j := strings.LastIndexByte(from, '/'); j >= 0 {
-				from = from[j+1:]
-			}
-			if from != "" {
-				if strings.HasPrefix(what, from+".") {
-					return to + what[len(from):]
-				}
-				return what
-			}
-			i := strings.IndexByte(what, '.')
-			if i < 0 {
-				return what
-			}
-			return to + what[i:]
-		},
-	}).
-	Parse(`// Generated with protoc-gen-grpcer
-//	from "{{.ProtoFile}}"
-//	at   {{now}}
-//
-// DO NOT EDIT!
-
-package {{.Package}}
-
-import (
-	"context"
-	"fmt"
-	"io"
-
-	grpc "google.golang.org/grpc"
-	grpcer "github.com/UNO-SOFT/grpcer"
-
-	pb "{{.Import}}"
-	{{range .Dependencies}}"{{.}}"
-	{{end}}
-)
-
-{{ $import := .Import }}
-
-type client struct {
-	pb.{{.GetName}}Client
-	m map[string]inputAndCall
-}
-
-func (c client) List() []string {
-	names := make([]string, 0, len(c.m))
-	for k := range c.m {
-		names = append(names, k)
-	}
-	return names
-}
-
-func (c client) Input(name string) interface{} {
-	iac := c.m[name]
-	if iac.Input == nil {
+func getTags(m *descriptorpb.MethodDescriptorProto) []string {
+	var tags []string
+	opts := m.GetOptions()
+	if opts == nil {
 		return nil
 	}
-	return iac.Input()
-}
-
-func (c client) Call(name string, ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
-	iac := c.m[name]
-	if iac.Call == nil {
-		return nil, fmt.Errorf("name %q not found", name)
+	var buf strings.Builder
+	for _, o := range opts.GetUninterpretedOption() {
+		buf.Reset()
+		for i, p := range o.GetName() {
+			if i != 0 {
+				buf.WriteByte('.')
+			}
+			buf.WriteString(p.GetNamePart())
+		}
+		if nm := buf.String(); nm == "oracall.orasrv.tag" {
+			tags = append(tags, string(o.GetStringValue()))
+		}
 	}
-	return iac.Call(ctx, in, opts...)
+	return tags
 }
-func NewClient(cc *grpc.ClientConn) grpcer.Client {
-	c := pb.New{{.GetName}}Client(cc)
-	return client{
-		{{.GetName}}Client: c,
-		m: map[string]inputAndCall{
-		{{range .GetMethod}}"{{.GetName}}": inputAndCall{
-			Input: func() interface{} { return new({{ trimLeftDot .GetInputType | changePkgTo $import "pb" }}) },
-			Call: func(ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error) {
-				input := in.(*{{ trimLeftDot .GetInputType | changePkgTo $import "pb" }})
-				res, err := c.{{.Name}}(ctx, input, opts...)
-				if err != nil {
-					return &onceRecv{Out:res}, err
-				}
-				{{if .GetServerStreaming -}}
-				return multiRecv(func() (interface{}, error) { return res.Recv() }), nil
-				{{else -}}
-				return &onceRecv{Out:res}, err
-				{{end}}
-			},
-		},
-		{{end}}
-		},
+func trimLeftDot(s string) string { return strings.TrimLeft(s, ".") }
+func changePkgTo(from, to, what string) string {
+	if j := strings.LastIndexByte(from, '/'); j >= 0 {
+		from = from[j+1:]
 	}
-}
-
-type inputAndCall struct {
-	Input func() interface{}
-	Call func(ctx context.Context, in interface{}, opts ...grpc.CallOption) (grpcer.Receiver, error)
-}
-
-type onceRecv struct {
-	Out interface{}
-	done bool
-}
-func (o *onceRecv) Recv() (interface{}, error) {
-	if o.done {
-		return nil, io.EOF
+	if from != "" {
+		if strings.HasPrefix(what, from+".") {
+			return to + what[len(from):]
+		}
+		return what
 	}
-	out := o.Out
-	o.done, o.Out = true, nil
-	return out, nil
+	i := strings.IndexByte(what, '.')
+	if i < 0 {
+		return what
+	}
+	return to + what[i:]
 }
-
-type multiRecv func() (interface{}, error)
-func (m multiRecv) Recv() (interface{}, error) {
-	return m()
-}
-
-var _ = multiRecv(nil) // against "unused"
-
-`))
 
 func genGo(w io.Writer, destPkg, protoFn string, svc *descriptorpb.ServiceDescriptorProto, dependencies []string) error {
 	if destPkg == "" {
@@ -244,17 +145,20 @@ func genGo(w io.Writer, destPkg, protoFn string, svc *descriptorpb.ServiceDescri
 		}
 		deps = append(deps, k)
 	}
-	return goTmpl.Execute(w, struct {
-		*descriptorpb.ServiceDescriptorProto
-		ProtoFile, Package, Import string
-		Dependencies               []string
-	}{
-		ProtoFile:              protoFn,
-		Package:                destPkg,
-		Import:                 filepath.Dir(protoFn),
-		Dependencies:           deps,
-		ServiceDescriptorProto: svc,
+	W := quicktemplate.AcquireWriter(w)
+	StreamXGo(W, svc, FileInfo{
+		ProtoFile:    protoFn,
+		Package:      destPkg,
+		Import:       filepath.Dir(protoFn),
+		Dependencies: deps,
 	})
+	quicktemplate.ReleaseWriter(W)
+	return nil
+}
+
+type FileInfo struct {
+	ProtoFile, Package, Import string
+	Dependencies               []string
 }
 
 // vim: set fileencoding=utf-8 noet:

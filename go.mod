@@ -13,6 +13,7 @@ require (
 	github.com/tgulacsi/go v0.27.3
 	github.com/tgulacsi/go-xmlrpc v0.2.2
 	github.com/tgulacsi/oracall v0.19.0
+	github.com/valyala/quicktemplate v1.7.0
 	google.golang.org/grpc v1.61.1
 	google.golang.org/protobuf v1.32.0
 )
@@ -27,6 +28,7 @@ require (
 	github.com/godror/godror v0.40.2 // indirect
 	github.com/godror/knownpb v0.1.1 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.48.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.48.0 // indirect
 	go.opentelemetry.io/otel v1.23.1 // indirect
