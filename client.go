@@ -70,19 +70,19 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 		propOpt := gtrace.WithPropagators(otel.HTTPPropagators)
 		gzipOpt := grpc.UseCompressor("gzip")
 		dialOpts = append(dialOpts,
+			grpc.WithStatsHandler(gtrace.ClientHandler(
+				providerOpt, propOpt)),
 			grpc.WithChainStreamInterceptor(
 				func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					logger.Info("chain", "method", method)
 					return streamer(ctx, desc, cc, prefix+method, append(opts, gzipOpt)...)
 				},
-				gtrace.StreamClientInterceptor(providerOpt, propOpt),
 			),
 			grpc.WithChainUnaryInterceptor(
 				func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 					logger.Info("unary", "method", method)
 					return invoker(ctx, prefix+method, req, reply, cc, append(opts, gzipOpt)...)
 				},
-				gtrace.UnaryClientInterceptor(providerOpt, propOpt),
 			),
 		)
 	}
