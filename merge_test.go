@@ -6,12 +6,12 @@ package grpcer
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"io"
 	"reflect"
 	"strings"
 	"testing"
-
-	"encoding/json"
 
 	"github.com/UNO-SOFT/zlog/v2"
 	"github.com/kylelemons/godebug/diff"
@@ -89,7 +89,7 @@ func jsToIntf(r io.Reader) []interface{} {
 	for {
 		var rt retType
 		if err := dec.Decode(&rt); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			panic(err)

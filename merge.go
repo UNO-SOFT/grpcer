@@ -6,14 +6,13 @@ package grpcer
 
 import (
 	"bytes"
+	json "encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"reflect"
 	"strings"
-
-	json "encoding/json"
 
 	"github.com/klauspost/compress/zstd"
 	"log/slog"
@@ -38,7 +37,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 
 			part, err = recv.Recv()
 			if err != nil {
-				if err != io.EOF {
+				if !errors.Is(err, io.EOF) {
 					logger.Error("msg", "recv", "error", err)
 				}
 				break
@@ -119,7 +118,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 	for {
 		part, err = recv.Recv()
 		if err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				logger.Error("msg", "recv", "error", err)
 			}
 			break

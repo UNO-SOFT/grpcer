@@ -6,14 +6,14 @@ package grpcer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 	"unicode"
 	"unicode/utf8"
-
-	"log/slog"
 
 	"github.com/klauspost/compress/gzhttp"
 	"github.com/mitchellh/mapstructure"
@@ -99,7 +99,7 @@ func (h XMLRPCHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	for {
 		parts = append(parts, part)
 		if part, err = recv.Recv(); err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				logger.Error("recv", "error", err)
 				parts = parts[:1]
 				parts[0] = xmlrpc.Fault{Code: 111, Message: err.Error()}

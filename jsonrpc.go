@@ -265,7 +265,7 @@ func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 		part, err = recv.Recv()
 		if err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				logger.Error("msg", "recv", "error", err)
 			}
 			break
