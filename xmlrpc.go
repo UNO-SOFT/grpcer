@@ -23,14 +23,25 @@ import (
 type XMLRPCHandler struct {
 	Client
 	*slog.Logger
-	Timeout time.Duration
+	GetLogger func(ctx context.Context) *slog.Logger
+	Timeout   time.Duration
+}
+
+func (h XMLRPCHandler) getLogger(ctx context.Context) *slog.Logger {
+	if h.GetLogger != nil {
+		if lgr := h.GetLogger(ctx); lgr != nil {
+			return lgr
+		}
+	}
+	return h.Logger
 }
 
 func (h XMLRPCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	gzhttp.GzipHandler(http.HandlerFunc(h.serveHTTP)).ServeHTTP(w, r)
 }
 func (h XMLRPCHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
-	logger := h.Logger
+	ctx := r.Context()
+	logger := h.getLogger(ctx)
 	name, params, err := xmlrpc.Unmarshal(r.Body)
 	logger.Info("unmarshal", "name", name, "params", params, "error", err)
 	if err != nil {
@@ -70,7 +81,6 @@ func (h XMLRPCHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Info("decoded", "inp", inp)
 
-	ctx := r.Context()
 	if u, p, ok := r.BasicAuth(); ok {
 		ctx = WithBasicAuth(ctx, u, p)
 	}

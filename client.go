@@ -38,6 +38,7 @@ type Client interface {
 // DialConfig contains the configuration variables.
 type DialConfig struct {
 	*slog.Logger
+	// GetLogger func(ctx context.Context) *slog.Logger
 	PathPrefix                     string
 	CAFile                         string
 	ServerHostOverride             string

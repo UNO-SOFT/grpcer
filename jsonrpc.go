@@ -44,8 +44,18 @@ type RequestInfo interface {
 type JSONHandler struct {
 	Client       `json:"-"`
 	*slog.Logger `json:"-"`
+	GetLogger    func(context.Context) *slog.Logger
 	Timeout      time.Duration
 	MergeStreams bool
+}
+
+func (h JSONHandler) getLogger(ctx context.Context) *slog.Logger {
+	if h.GetLogger != nil {
+		if lgr := h.GetLogger(ctx); lgr != nil {
+			return lgr
+		}
+	}
+	return h.Logger
 }
 
 func jsonError(w http.ResponseWriter, errMsg string, code int) {
@@ -129,7 +139,7 @@ var msDecConf = mapstructure.DecoderConfig{
 }
 
 func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (RequestInfo, interface{}, error) {
-	logger := h.Logger
+	logger := h.getLogger(ctx)
 
 	request := requestInfo{name: path.Base(r.URL.Path)}
 	logger.Info("DecodeRequest", "name", request.name)
@@ -194,7 +204,7 @@ func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 	}
 	ctx := r.Context()
-	logger := h.Logger
+	logger := h.getLogger(ctx)
 	request, inp, err := h.DecodeRequest(ctx, r)
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
