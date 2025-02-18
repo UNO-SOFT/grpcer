@@ -239,7 +239,7 @@ func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 	recv, err := h.Call(name, ctx, inp)
 	if err != nil {
-		logger.Error("call", name, "error", err)
+		logger.Error("call", "name", name, "error", err)
 		jsonError(w, fmt.Sprintf("Call %s: %s", name, err), statusCodeFromError(err))
 		return
 	}
