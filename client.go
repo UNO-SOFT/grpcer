@@ -1,4 +1,4 @@
-// Copyright 2017, 2022 Tamás Gulácsi
+// Copyright 2017, 2025 Tamás Gulácsi
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/UNO-SOFT/otel"
 	"github.com/UNO-SOFT/otel/gtrace"
@@ -89,13 +88,17 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 	}
 	if conf.CAFile == "" {
 		if conf.AllowInsecurePasswordTransport {
-			ba := NewInsecureBasicAuth(conf.Username, conf.Password)
-			dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(ba))
+			if conf.Username != "" {
+				ba := NewInsecureBasicAuth(conf.Username, conf.Password)
+				dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(ba))
+			}
 		}
 		return append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials())), nil
 	}
-	ba := NewBasicAuth(conf.Username, conf.Password)
-	dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(ba))
+	if conf.Username != "" {
+		ba := NewBasicAuth(conf.Username, conf.Password)
+		dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(ba))
+	}
 	conf.Info("dial", "config", conf)
 	creds, err := credentials.NewClientTLSFromFile(conf.CAFile, conf.ServerHostOverride)
 	if err != nil {
@@ -104,28 +107,6 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 	dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
 
 	return dialOpts, nil
-}
-
-// Connect to the given endpoint, with the Certificate Authority and hostOverride.
-func Connect(endpoint, CAFile, serverHostOverride string) (*grpc.ClientConn, error) {
-	var prefix string
-	if i := strings.IndexByte(endpoint, '/'); i >= 0 {
-		endpoint, prefix = (endpoint)[:i], (endpoint)[i:]
-	}
-	dc := DialConfig{
-		PathPrefix:         prefix,
-		CAFile:             CAFile,
-		ServerHostOverride: serverHostOverride,
-	}
-	opts, err := DialOpts(dc)
-	if err != nil {
-		return nil, fmt.Errorf("%#v: %w", dc, err)
-	}
-	conn, err := grpc.Dial(endpoint, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("%s:  %w", endpoint, err)
-	}
-	return conn, nil
 }
 
 // vim: se noet fileencoding=utf-8:
