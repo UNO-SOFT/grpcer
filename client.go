@@ -60,7 +60,7 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 			serviceName = conf.Username + "@" + conf.ServerHostOverride + conf.PathPrefix
 		}
 		tp, _, _, err := otel.LogTraceProvider(
-			slog.NewLogLogger(logger.Handler(), slog.LevelInfo),
+			slog.NewLogLogger(logger.Handler(), slog.LevelDebug),
 			serviceName, serviceVersion,
 		)
 		if err != nil {
