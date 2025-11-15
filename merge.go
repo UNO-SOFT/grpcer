@@ -23,7 +23,7 @@ var (
 	errWrongType = errors.New("wrong type")
 )
 
-func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interface{}, error) }, logger *slog.Logger) error {
+func mergeStreams(w io.Writer, first any, recv interface{ Recv() (any, error) }, logger *slog.Logger) error {
 	slice, notSlice := SliceFields(first, "json")
 	if len(slice) == 0 {
 		var err error
@@ -113,7 +113,7 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 		}
 	}
 
-	var part interface{}
+	var part any
 	var err error
 	for {
 		part, err = recv.Recv()
@@ -196,12 +196,12 @@ func mergeStreams(w io.Writer, first interface{}, recv interface{ Recv() (interf
 }
 
 type Field struct {
-	Value   interface{}
+	Value   any
 	Name    string
 	TagName string
 }
 
-func SliceFields(part interface{}, tagName string) (slice, notSlice []Field) {
+func SliceFields(part any, tagName string) (slice, notSlice []Field) {
 	rv := reflect.ValueOf(part)
 	t := rv.Type()
 	if t.Kind() == reflect.Ptr {
@@ -209,7 +209,7 @@ func SliceFields(part interface{}, tagName string) (slice, notSlice []Field) {
 		t = rv.Type()
 	}
 	n := t.NumField()
-	for i := 0; i < n; i++ {
+	for i := range n {
 		tf := t.Field(i)
 		if !tf.IsExported() {
 			continue

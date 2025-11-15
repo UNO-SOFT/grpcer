@@ -71,10 +71,8 @@ func Main(p *protogen.Plugin) error {
 	}
 
 	for _, root := range roots {
-		root := root
 		pkg := root.GetName()
 		for _, svc := range root.GetService() {
-			svc := svc
 			destFn := strings.TrimSuffix(filepath.Base(pkg), ".proto") + ".grpcer.go"
 			if err := genGo(p.NewGeneratedFile(destFn, protogen.GoImportPath(pkg)), destPkg, pkg, svc, root.GetDependency()); err != nil {
 				p.Error(err)

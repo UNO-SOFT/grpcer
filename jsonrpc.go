@@ -75,7 +75,7 @@ const debugDecodeHook = false
 var msDecConf = mapstructure.DecoderConfig{
 	Squash:           true,
 	WeaklyTypedInput: true,
-	DecodeHook: func(f reflect.Type, t reflect.Type, data interface{}) (res interface{}, err error) {
+	DecodeHook: func(f reflect.Type, t reflect.Type, data any) (res any, err error) {
 		if debugDecodeHook {
 			fmt.Printf("\nf:%+v t:%+v data:%#v\n\n", f, t, data)
 			defer func() {
@@ -138,7 +138,7 @@ var msDecConf = mapstructure.DecoderConfig{
 	},
 }
 
-func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (RequestInfo, interface{}, error) {
+func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (RequestInfo, any, error) {
 	logger := h.getLogger(ctx)
 
 	request := requestInfo{name: path.Base(r.URL.Path)}
@@ -158,7 +158,7 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 	logger.Error("decode", "body", sr.Read, "error", err)
 	b, _ := ReadHeadTail(io.NewSectionReader(sr, 0, sr.Size()), 1024)
 	origErr := fmt.Errorf("%s: %w", string(b), err)
-	m := mapPool.Get().(map[string]interface{})
+	m := mapPool.Get().(map[string]any)
 	defer func() {
 		for k := range m {
 			delete(m, k)
@@ -310,8 +310,8 @@ func limitWidth(b []byte, width int) string {
 	return fmt.Sprintf("%s ...%d... %s", b[:width/2-6], n, b[len(b)-width/2-6:])
 }
 
-var mapPool = sync.Pool{New: func() interface{} { return make(map[string]interface{}, 16) }}
-var bufPool = sync.Pool{New: func() interface{} { return bytes.NewBuffer(make([]byte, 0, 4096)) }}
+var mapPool = sync.Pool{New: func() any { return make(map[string]any, 16) }}
+var bufPool = sync.Pool{New: func() any { return bytes.NewBuffer(make([]byte, 0, 4096)) }}
 
 var digitUnder = strings.NewReplacer(
 	"_0", "__0",

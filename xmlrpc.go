@@ -58,7 +58,7 @@ func (h XMLRPCHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Wanted 1 struct param, got %d.", len(params)), http.StatusBadRequest)
 		return
 	}
-	m, ok := params[0].(map[string]interface{})
+	m, ok := params[0].(map[string]any)
 	if !ok {
 		http.Error(w, fmt.Sprintf("Wanted struct, got %T", params[0]), http.StatusBadRequest)
 		return
@@ -105,7 +105,7 @@ func (h XMLRPCHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	parts := []interface{}{nil}[:0]
+	parts := []any{nil}[:0]
 	for {
 		parts = append(parts, part)
 		if part, err = recv.Recv(); err != nil {

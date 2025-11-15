@@ -25,7 +25,7 @@ func TestMerge(t *testing.T) {
 	repComma := strings.NewReplacer(`",`, `",`+"\n")
 	for tN, tC := range map[string]struct {
 		Want  string
-		Input []interface{}
+		Input []any
 	}{
 		"noSlice": {
 			Input: toIntf([]struct {
@@ -80,11 +80,11 @@ func TestMerge(t *testing.T) {
 	}
 }
 
-func jsToIntf(r io.Reader) []interface{} {
+func jsToIntf(r io.Reader) []any {
 	dec := json.NewDecoder(r)
-	res := make([]interface{}, 0, 8)
+	res := make([]any, 0, 8)
 	type retType struct {
-		Ret []map[string]interface{} `json:"ret"`
+		Ret []map[string]any `json:"ret"`
 	}
 	for {
 		var rt retType
@@ -99,9 +99,9 @@ func jsToIntf(r io.Reader) []interface{} {
 	return res
 }
 
-func toIntf(someSlice interface{}) []interface{} {
+func toIntf(someSlice any) []any {
 	rv := reflect.ValueOf(someSlice)
-	res := make([]interface{}, rv.Len())
+	res := make([]any, rv.Len())
 	for i := range res {
 		res[i] = rv.Index(i).Interface()
 	}
@@ -109,10 +109,10 @@ func toIntf(someSlice interface{}) []interface{} {
 }
 
 type receiver struct {
-	parts []interface{}
+	parts []any
 }
 
-func (r *receiver) Recv() (interface{}, error) {
+func (r *receiver) Recv() (any, error) {
 	if len(r.parts) == 0 {
 		return nil, io.EOF
 	}

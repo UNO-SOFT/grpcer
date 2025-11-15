@@ -21,7 +21,7 @@ import (
 
 // Receiver is an interface for Recv()-ing streamed responses from the server.
 type Receiver interface {
-	Recv() (interface{}, error)
+	Recv() (any, error)
 }
 
 // Client is the client interface for calling a gRPC server.
@@ -29,9 +29,9 @@ type Client interface {
 	// List the available names
 	List() []string
 	// Input returns the input struct for the name.
-	Input(name string) interface{}
+	Input(name string) any
 	// Call the named function.
-	Call(name string, ctx context.Context, input interface{}, opts ...grpc.CallOption) (Receiver, error)
+	Call(name string, ctx context.Context, input any, opts ...grpc.CallOption) (Receiver, error)
 }
 
 // DialConfig contains the configuration variables.
@@ -79,7 +79,7 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 				},
 			),
 			grpc.WithChainUnaryInterceptor(
-				func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+				func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 					logger.Info("unary", "method", method)
 					return invoker(ctx, prefix+method, req, reply, cc, append(opts, gzipOpt)...)
 				},
