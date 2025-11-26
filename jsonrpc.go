@@ -151,11 +151,15 @@ func (h JSONHandler) DecodeRequest(ctx context.Context, r *http.Request) (Reques
 	if err != nil {
 		return request, nil, err
 	}
+	body := io.Reader(io.NewSectionReader(sr, 0, sr.Size()))
+	if sr.Size() == 0 {
+		body = strings.NewReader("{}")
+	}
 
-	if err = json.NewDecoder(io.NewSectionReader(sr, 0, sr.Size())).Decode(inp); err == nil {
+	if err = json.NewDecoder(body).Decode(inp); err == nil {
 		return request, inp, nil
 	}
-	logger.Error("decode", "body", sr.Read, "error", err)
+	logger.Error("decode", "body", body, "error", err)
 	b, _ := ReadHeadTail(io.NewSectionReader(sr, 0, sr.Size()), 1024)
 	origErr := fmt.Errorf("%s: %w", string(b), err)
 	m := mapPool.Get().(map[string]any)
