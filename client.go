@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/UNO-SOFT/otel"
-	"github.com/UNO-SOFT/otel/gtrace"
+	// "github.com/UNO-SOFT/otel"
+	// "github.com/UNO-SOFT/otel/gtrace"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -55,23 +55,23 @@ func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 	dialOpts := make([]grpc.DialOption, 0, 6)
 
 	if prefix, logger := conf.PathPrefix, conf.Logger; logger.Enabled(context.Background(), slog.LevelInfo) {
-		serviceName, serviceVersion := conf.ServiceName, conf.ServiceVersion
+		serviceName := conf.ServiceName
 		if serviceName == "" {
 			serviceName = conf.Username + "@" + conf.ServerHostOverride + conf.PathPrefix
 		}
-		tp, _, _, err := otel.LogTraceProvider(
-			slog.NewLogLogger(logger.Handler(), slog.LevelDebug),
-			serviceName, serviceVersion,
-		)
-		if err != nil {
-			return nil, err
-		}
-		providerOpt := gtrace.WithTracerProvider(tp)
-		propOpt := gtrace.WithPropagators(otel.HTTPPropagators)
+		// tp, _, _, err := otel.LogTraceProvider(
+		// 	slog.NewLogLogger(logger.Handler(), slog.LevelDebug),
+		// 	serviceName, serviceVersion,
+		// )
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// providerOpt := gtrace.WithTracerProvider(tp)
+		// propOpt := gtrace.WithPropagators(otel.HTTPPropagators)
 		gzipOpt := grpc.UseCompressor("gzip")
 		dialOpts = append(dialOpts,
-			grpc.WithStatsHandler(gtrace.ClientHandler(
-				providerOpt, propOpt)),
+			// grpc.WithStatsHandler(gtrace.ClientHandler(
+			// 	providerOpt, propOpt)),
 			grpc.WithChainStreamInterceptor(
 				func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 					logger.Info("chain", "method", method)
