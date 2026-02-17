@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	// "github.com/UNO-SOFT/otel"
-	// "github.com/UNO-SOFT/otel/gtrace"
+	"github.com/UNO-SOFT/w3ctrace"
+	"github.com/UNO-SOFT/w3ctrace/gtrace"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -54,33 +54,39 @@ type DialConfig struct {
 func DialOpts(conf DialConfig) ([]grpc.DialOption, error) {
 	dialOpts := make([]grpc.DialOption, 0, 6)
 
-	if prefix, logger := conf.PathPrefix, conf.Logger; logger.Enabled(context.Background(), slog.LevelInfo) {
-		serviceName := conf.ServiceName
-		if serviceName == "" {
-			serviceName = conf.Username + "@" + conf.ServerHostOverride + conf.PathPrefix
-		}
-		// tp, _, _, err := otel.LogTraceProvider(
-		// 	slog.NewLogLogger(logger.Handler(), slog.LevelDebug),
-		// 	serviceName, serviceVersion,
-		// )
-		// if err != nil {
-		// 	return nil, err
+	if prefix, logger := conf.PathPrefix, conf.Logger; logger.Enabled(
+		context.Background(), slog.LevelInfo,
+	) {
+		// serviceName := conf.ServiceName
+		// if serviceName == "" {
+		// 	serviceName = conf.Username + "@" + conf.ServerHostOverride + conf.PathPrefix
 		// }
-		// providerOpt := gtrace.WithTracerProvider(tp)
-		// propOpt := gtrace.WithPropagators(otel.HTTPPropagators)
 		gzipOpt := grpc.UseCompressor("gzip")
 		dialOpts = append(dialOpts,
-			// grpc.WithStatsHandler(gtrace.ClientHandler(
-			// 	providerOpt, propOpt)),
 			grpc.WithChainStreamInterceptor(
-				func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-					logger.Info("chain", "method", method)
+				func(
+					ctx context.Context, desc *grpc.StreamDesc,
+					cc *grpc.ClientConn, method string,
+					streamer grpc.Streamer,
+					opts ...grpc.CallOption,
+				) (grpc.ClientStream, error) {
+					tr := w3ctrace.FromContext(ctx)
+					tr.Ensure()
+					logger.Info("chain", "method", method, "trace", tr)
+					ctx = gtrace.AppendTraceToContext(ctx, tr)
 					return streamer(ctx, desc, cc, prefix+method, append(opts, gzipOpt)...)
 				},
 			),
 			grpc.WithChainUnaryInterceptor(
-				func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-					logger.Info("unary", "method", method)
+				func(
+					ctx context.Context, method string, req, reply any,
+					cc *grpc.ClientConn, invoker grpc.UnaryInvoker,
+					opts ...grpc.CallOption,
+				) error {
+					tr := w3ctrace.FromContext(ctx)
+					tr.Ensure()
+					logger.Info("unary", "method", method, "trace", tr)
+					ctx = gtrace.AppendTraceToContext(ctx, tr)
 					return invoker(ctx, prefix+method, req, reply, cc, append(opts, gzipOpt)...)
 				},
 			),
