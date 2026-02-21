@@ -1,4 +1,4 @@
-// Copyright 2017, 2022 Tamás Gulácsi
+// Copyright 2017, 2026 Tamás Gulácsi
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -280,7 +280,7 @@ func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		part, err = recv.Recv()
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
-				logger.Error("msg", "recv", "error", err)
+				logger.Error("recv", "error", err)
 			}
 			break
 		}

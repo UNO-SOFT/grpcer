@@ -1,4 +1,4 @@
-// Copyright 2019, 2021 Tamás Gulácsi
+// Copyright 2019, 2026 Tamás Gulácsi
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -38,7 +38,7 @@ func mergeStreams(w io.Writer, first any, recv interface{ Recv() (any, error) },
 			part, err = recv.Recv()
 			if err != nil {
 				if !errors.Is(err, io.EOF) {
-					logger.Error("msg", "recv", "error", err)
+					logger.Error("recv", "error", err)
 				}
 				break
 			}
@@ -84,7 +84,7 @@ func mergeStreams(w io.Writer, first any, recv interface{ Recv() (any, error) },
 	openFile := func(f Field) error {
 		fh, err := NewTempFile("", "merge-"+f.Name+"-*.json.zst")
 		if err != nil {
-			logger.Error("tempFile", f.Name, "error", err)
+			logger.Error("newTempFile", "name", f.Name, "error", err)
 			return fmt.Errorf("%s: %w", f.Name, err)
 		}
 		files[f.Name] = fh
@@ -119,7 +119,7 @@ func mergeStreams(w io.Writer, first any, recv interface{ Recv() (any, error) },
 		part, err = recv.Recv()
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
-				logger.Error("msg", "recv", "error", err)
+				logger.Error("recv", "error", err)
 			}
 			break
 		}
@@ -181,7 +181,7 @@ func mergeStreams(w io.Writer, first any, recv interface{ Recv() (any, error) },
 	for nm, fh := range files {
 		rc, err := fh.GetReader()
 		if err != nil {
-			logger.Error("msg", "GetReader", "name", nm, "error", err)
+			logger.Error("GetReader", "name", nm, "error", err)
 			continue
 		}
 		w.Write([]byte{','})

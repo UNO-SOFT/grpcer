@@ -16,7 +16,7 @@ require (
 )
 
 require (
-	github.com/UNO-SOFT/w3ctrace v0.0.0-20260217175826-54bb58dba989 // indirect
+	github.com/UNO-SOFT/w3ctrace v0.0.1 // indirect
 	github.com/dgryski/go-linebreak v0.0.0-20180812204043-d8f37254e7d3 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
