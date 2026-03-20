@@ -3,7 +3,7 @@ module github.com/UNO-SOFT/grpcer
 go 1.25.4
 
 require (
-	github.com/UNO-SOFT/w3ctrace v0.0.1
+	github.com/UNO-SOFT/w3ctrace v0.0.2
 	github.com/UNO-SOFT/zlog v0.8.6
 	github.com/klauspost/compress v1.18.0
 	github.com/kylelemons/godebug v1.1.0
