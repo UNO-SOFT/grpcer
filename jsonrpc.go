@@ -222,7 +222,7 @@ func (h JSONHandler) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	{
 		_ = jenc.Encode(inp)
 		u, p, ok := r.BasicAuth()
-		logger.Info("basicAuth", "inp", ht.String(), "username", u)
+		logger.Info("basicAuth", "username", u)
 		if ok {
 			ctx = WithBasicAuth(ctx, u, p)
 		}
