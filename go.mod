@@ -5,7 +5,7 @@ go 1.25.4
 require (
 	github.com/UNO-SOFT/w3ctrace v0.0.2
 	github.com/UNO-SOFT/zlog v0.8.6
-	github.com/klauspost/compress v1.18.0
+	github.com/klauspost/compress v1.18.7
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/tgulacsi/go v0.28.2
